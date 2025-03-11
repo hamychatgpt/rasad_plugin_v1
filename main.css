@@ -1,0 +1,206 @@
+/* تنظیمات کلی */
+body {
+    font-family: 'Tahoma', 'Segoe UI', sans-serif;
+    background-color: #f8f9fc;
+}
+
+/* تنظیمات RTL */
+.text-start {
+    text-align: left !important;
+}
+
+.ms-auto {
+    margin-right: auto !important;
+    margin-left: 0 !important;
+}
+
+.me-auto {
+    margin-left: auto !important;
+    margin-right: 0 !important;
+}
+
+.me-2 {
+    margin-left: 0.5rem !important;
+    margin-right: 0 !important;
+}
+
+.ms-2 {
+    margin-right: 0.5rem !important;
+    margin-left: 0 !important;
+}
+
+.border-start {
+    border-right: var(--bs-border-width) var(--bs-border-style) var(--bs-border-color) !important;
+    border-left: 0 !important;
+}
+
+/* خلاصه‌سازی متن */
+.text-truncate {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* رنگ‌بندی پنل‌ها */
+.card {
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+    border: none;
+    border-radius: 0.35rem;
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    padding: 0.75rem 1.25rem;
+}
+
+.border-start.border-primary {
+    border-right-color: var(--bs-primary) !important;
+}
+
+.border-start.border-success {
+    border-right-color: var(--bs-success) !important;
+}
+
+.border-start.border-info {
+    border-right-color: var(--bs-info) !important;
+}
+
+.border-start.border-warning {
+    border-right-color: var(--bs-warning) !important;
+}
+
+/* کارت‌های آمار */
+.card-body .text-muted {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.card-body .text-gray-300 {
+    color: #dddfeb !important;
+}
+
+/* جداول */
+.table th {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}
+
+.table th, .table td {
+    vertical-align: middle;
+}
+
+/* دکمه‌ها */
+.btn-hover-light:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* صفحه‌بندی */
+.pagination .page-item.active .page-link {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+
+.pagination .page-link {
+    color: var(--bs-primary);
+}
+
+/* فرم‌ها */
+.form-control, .form-select {
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #6e707e;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid #d1d3e2;
+    border-radius: 0.35rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #bac8f3;
+    box-shadow: 0 0 0 0.25rem rgba(78, 115, 223, 0.25);
+}
+
+/* تغییر استایل برای رنگ‌های بوت‌استرپ */
+.text-primary {
+    color: #4e73df !important;
+}
+
+.text-success {
+    color: #1cc88a !important;
+}
+
+.text-info {
+    color: #36b9cc !important;
+}
+
+.text-warning {
+    color: #f6c23e !important;
+}
+
+.text-danger {
+    color: #e74a3b !important;
+}
+
+.bg-primary {
+    background-color: #4e73df !important;
+}
+
+.bg-success {
+    background-color: #1cc88a !important;
+}
+
+.bg-info {
+    background-color: #36b9cc !important;
+}
+
+.bg-warning {
+    background-color: #f6c23e !important;
+}
+
+.bg-danger {
+    background-color: #e74a3b !important;
+}
+
+.btn-primary {
+    background-color: #4e73df;
+    border-color: #4e73df;
+}
+
+.btn-success {
+    background-color: #1cc88a;
+    border-color: #1cc88a;
+}
+
+.btn-info {
+    background-color: #36b9cc;
+    border-color: #36b9cc;
+}
+
+.btn-warning {
+    background-color: #f6c23e;
+    border-color: #f6c23e;
+}
+
+.btn-danger {
+    background-color: #e74a3b;
+    border-color: #e74a3b;
+}
+
+/* وضعیت‌های مختلف */
+.status-active {
+    color: #1cc88a;
+}
+
+.status-paused {
+    color: #f6c23e;
+}
+
+.status-completed {
+    color: #858796;
+}

@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h1 class="mb-0">مدیریت جمع‌آوری‌ها</h1>
+    </div>
+    <div class="col-md-6 text-start">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCollectionModal">
+            <i class="fas fa-plus me-2"></i> افزودن جمع‌آوری جدید
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-tasks me-2"></i> لیست جمع‌آوری‌ها
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>نام</th>
+                        <th>نوع</th>
+                        <th>وضعیت</th>
+                        <th>آخرین اجرا</th>
+                        <th>اجرای بعدی</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for collection in collections %}
+                    <tr>
+                        <td>{{ collection.name }}</td>
+                        <td>
+                            {% if collection.collection_type.value == 'keyword' %}
+                            <span class="badge bg-info">کلیدواژه</span>
+                            {% elif collection.collection_type.value == 'user' %}
+                            <span class="badge bg-primary">کاربر</span>
+                            {% elif collection.collection_type.value == 'topic' %}
+                            <span class="badge bg-success">موضوع</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if collection.status.value == 'active' %}
+                            <span class="badge bg-success">فعال</span>
+                            {% elif collection.status.value == 'paused' %}
+                            <span class="badge bg-warning text-dark">متوقف</span>
+                            {% elif collection.status.value == 'completed' %}
+                            <span class="badge bg-secondary">تکمیل شده</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ collection.last_run_at.strftime('%Y/%m/%d %H:%M') if collection.last_run_at else 'اجرا نشده' }}</td>
+                        <td>{{ collection.next_run_at.strftime('%Y/%m/%d %H:%M') if collection.next_run_at else 'تعیین نشده' }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info text-white view-collection" data-id="{{ collection.id }}" title="مشاهده جزئیات">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-success run-collection" data-id="{{ collection.id }}" title="اجرای فوری">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning toggle-collection" 
+                                    data-id="{{ collection.id }}" 
+                                    data-status="{{ collection.status.value }}" 
+                                    title="{{ 'متوقف کردن' if collection.status.value == 'active' else 'فعال کردن' }}">
+                                <i class="fas {{ 'fa-pause' if collection.status.value == 'active' else 'fa-play' }}"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-collection" data-id="{{ collection.id }}" data-name="{{ collection.name }}" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-3">هیچ جمع‌آوری‌ای یافت نشد</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer">
+        <nav aria-label="صفحه‌بندی">
+            <ul class="pagination justify-content-center mb-0">
+                {% if pagination.current_page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="/collections?page=1" aria-label="First">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="/collections?page={{ pagination.current_page - 1 }}" aria-label="Previous">
+                        <i class="fas fa-angle-right"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="First">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                </li>
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Previous">
+                        <i class="fas fa-angle-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page in range(max(1, pagination.current_page - 2), min(pagination.total_pages + 1, pagination.current_page + 3)) %}
+                <li class="page-item {{ 'active' if page == pagination.current_page else '' }}">
+                    <a class="page-link" href="/collections?page={{ page }}">{{ page }}</a>
+                </li>
+                {% endfor %}
+                
+                {% if pagination.current_page < pagination.total_pages %}
+                <li class="page-item">
+                    <a class="page-link" href="/collections?page={{ pagination.current_page + 1 }}" aria-label="Next">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="/collections?page={{ pagination.total_pages }}" aria-label="Last">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Next">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                </li>
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Last">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Modal for adding new collection -->
+<div class="modal fade" id="addCollectionModal" tabindex="-1" aria-labelledby="addCollectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addCollectionModalLabel">افزودن جمع‌آوری جدید</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-collection-form">
+                    <div class="mb-3">
+                        <label for="collection-name" class="form-label">نام جمع‌آوری</label>
+                        <input type="text" class="form-control" id="collection-name" placeholder="مانند: اخبار فناوری" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="collection-description" class="form-label">توضیحات</label>
+                        <textarea class="form-control" id="collection-description" rows="3" placeholder="توضیحاتی درباره این جمع‌آوری..."></textarea>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="collection-type" class="form-label">نوع جمع‌آوری</label>
+                            <select class="form-select" id="collection-type" required>
+                                <option value="keyword" selected>کلیدواژه</option>
+                                <option value="user" disabled>کاربر (در فازهای بعدی)</option>
+                                <option value="topic" disabled>موضوع (در فازهای بعدی)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="collection-interval" class="form-label">بازه زمانی (ثانیه)</label>
+                            <input type="number" class="form-control" id="collection-interval" value="300" min="60" max="3600" required>
+                            <small class="form-text text-muted">حداقل ۶۰ ثانیه و حداکثر ۳۶۰۰ ثانیه (۱ ساعت)</small>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="collection-keywords" class="form-label">کلیدواژه‌ها (با کاما جدا کنید)</label>
+                        <input type="text" class="form-control" id="collection-keywords" placeholder="مانند: فناوری، هوش مصنوعی، علم داده" required>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="collection-active" checked>
+                        <label class="form-check-label" for="collection-active">فعال</label>
+                    </div>
+                </form>
+                <div id="add-collection-result" class="mt-3 d-none">
+                    <div class="alert" role="alert"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                <button type="button" id="save-collection-btn" class="btn btn-primary">ذخیره</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // افزودن جمع‌آوری جدید
+    const saveCollectionBtn = document.getElementById('save-collection-btn');
+    const addCollectionResult = document.getElementById('add-collection-result');
+    
+    saveCollectionBtn.addEventListener('click', async function() {
+        const name = document.getElementById('collection-name').value.trim();
+        const description = document.getElementById('collection-description').value.trim();
+        const type = document.getElementById('collection-type').value;
+        const interval = parseInt(document.getElementById('collection-interval').value);
+        const keywordsText = document.getElementById('collection-keywords').value.trim();
+        const active = document.getElementById('collection-active').checked;
+        
+        if (!name) {
+            alert('لطفاً نام جمع‌آوری را وارد کنید');
+            return;
+        }
+        
+        if (type === 'keyword' && !keywordsText) {
+            alert('لطفاً کلیدواژه‌ها را وارد کنید');
+            return;
+        }
+        
+        const keywords = keywordsText.split(',').map(k => k.trim()).filter(k => k);
+        
+        // نمایش وضعیت در حال بارگذاری
+        saveCollectionBtn.disabled = true;
+        saveCollectionBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> در حال ذخیره...';
+        addCollectionResult.classList.remove('d-none');
+        addCollectionResult.querySelector('.alert').className = 'alert alert-info';
+        addCollectionResult.querySelector('.alert').innerHTML = 'در حال ذخیره جمع‌آوری...';
+        
+        try {
+            const response = await fetch('/api/collections', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: name,
+                    description: description,
+                    collection_type: type,
+                    interval_seconds: interval,
+                    status: active ? 'active' : 'paused',
+                    keywords: keywords
+                }),
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                addCollectionResult.querySelector('.alert').className = 'alert alert-success';
+                addCollectionResult.querySelector('.alert').innerHTML = 'جمع‌آوری با موفقیت ذخیره شد!';
+                
+                // بازیابی صفحه بعد از ۲ ثانیه
+                setTimeout(function() {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                addCollectionResult.querySelector('.alert').className = 'alert alert-danger';
+                addCollectionResult.querySelector('.alert').innerHTML = `خطا در ذخیره جمع‌آوری: ${data.error || 'خطای نامشخص'}`;
+            }
+        } catch (error) {
+            addCollectionResult.querySelector('.alert').className = 'alert alert-danger';
+            addCollectionResult.querySelector('.alert').innerHTML = `خطا در ارتباط با سرور: ${error.message}`;
+        } finally {
+            saveCollectionBtn.disabled = false;
+            saveCollectionBtn.innerHTML = 'ذخیره';
+        }
+    });
+    
+    // مشاهده جزئیات جمع‌آوری
+    const viewButtons = document.querySelectorAll('.view-collection');
+    viewButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const collectionId = this.dataset.id;
+            
+            // در این مرحله این قابلیت پیاده‌سازی نشده است
+            alert('این قابلیت در مراحل بعدی پیاده‌سازی خواهد شد');
+        });
+    });
+    
+    // اجرای فوری جمع‌آوری
+    const runButtons = document.querySelectorAll('.run-collection');
+    runButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const collectionId = this.dataset.id;
+            
+            // در این مرحله این قابلیت پیاده‌سازی نشده است
+            alert('این قابلیت در مراحل بعدی پیاده‌سازی خواهد شد');
+        });
+    });
+    
+    // تغییر وضعیت جمع‌آوری (فعال/متوقف)
+    const toggleButtons = document.querySelectorAll('.toggle-collection');
+    toggleButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const collectionId = this.dataset.id;
+            const status = this.dataset.status;
+            
+            // در این مرحله این قابلیت پیاده‌سازی نشده است
+            alert('این قابلیت در مراحل بعدی پیاده‌سازی خواهد شد');
+        });
+    });
+    
+    // حذف جمع‌آوری
+    const deleteButtons = document.querySelectorAll('.delete-collection');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const collectionId = this.dataset.id;
+            const collectionName = this.dataset.name;
+            
+            // در این مرحله این قابلیت پیاده‌سازی نشده است
+            alert('این قابلیت در مراحل بعدی پیاده‌سازی خواهد شد');
+        });
+    });
+});
+</script>
+{% endblock %}

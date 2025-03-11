@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h1 class="mb-0">
+            {% if keyword %}
+            توییت‌های مرتبط با "{{ keyword }}"
+            {% else %}
+            مشاهده توییت‌ها
+            {% endif %}
+        </h1>
+    </div>
+    <div class="col-md-6">
+        <form class="row g-3" action="/tweets" method="get">
+            <div class="col-auto">
+                <label for="keyword-search" class="visually-hidden">کلیدواژه</label>
+                <input type="text" class="form-control" id="keyword-search" name="keyword" placeholder="جستجو بر اساس کلیدواژه" value="{{ keyword }}">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary mb-3">جستجو</button>
+                {% if keyword %}
+                <a href="/tweets" class="btn btn-secondary mb-3">حذف فیلتر</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="row">
+            <div class="col">
+                <i class="fab fa-twitter me-2"></i> لیست توییت‌ها
+            </div>
+            <div class="col-auto">
+                <span class="badge bg-primary">{{ pagination.total_count }} توییت</span>
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+            {% for tweet in tweets %}
+            <div class="list-group-item list-group-item-action p-4">
+                <div class="d-flex w-100 justify-content-between mb-2">
+                    <h5 class="mb-1">
+                        <a href="https://twitter.com/{{ tweet.user.username if tweet.user else 'username' }}" target="_blank" class="text-decoration-none">
+                            {{ tweet.user.display_name if tweet.user and tweet.user.display_name else tweet.user.username if tweet.user else 'نام کاربر' }}
+                            <small class="text-muted">@{{ tweet.user.username if tweet.user else 'username' }}</small>
+                        </a>
+                    </h5>
+                    <small class="text-muted">{{ tweet.created_at.strftime('%Y/%m/%d %H:%M') }}</small>
+                </div>
+                <p class="mb-2">{{ tweet.text }}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="me-3" title="لایک‌ها"><i class="fas fa-heart text-danger"></i> {{ tweet.like_count }}</span>
+                        <span class="me-3" title="ریتوییت‌ها"><i class="fas fa-retweet text-success"></i> {{ tweet.retweet_count }}</span>
+                        <span class="me-3" title="پاسخ‌ها"><i class="fas fa-reply text-primary"></i> {{ tweet.reply_count }}</span>
+                        {% if tweet.language %}
+                        <span class="badge bg-secondary">{{ tweet.language }}</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <a href="https://twitter.com/status/{{ tweet.tweet_id }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-external-link-alt"></i> مشاهده در توییتر
+                        </a>
+                        <button class="btn btn-sm btn-outline-info analyze-btn" data-id="{{ tweet.id }}" data-tweet-id="{{ tweet.tweet_id }}">
+                            <i class="fas fa-chart-bar"></i> تحلیل
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="list-group-item p-5 text-center">
+                <p class="mb-0">هیچ توییتی یافت نشد</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="card-footer">
+        <nav aria-label="صفحه‌بندی">
+            <ul class="pagination justify-content-center mb-0">
+                {% if pagination.current_page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="/tweets?page=1{% if keyword %}&keyword={{ keyword }}{% endif %}" aria-label="First">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="/tweets?page={{ pagination.current_page - 1 }}{% if keyword %}&keyword={{ keyword }}{% endif %}" aria-label="Previous">
+                        <i class="fas fa-angle-right"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="First">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                </li>
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Previous">
+                        <i class="fas fa-angle-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page in range(max(1, pagination.current_page - 2), min(pagination.total_pages + 1, pagination.current_page + 3)) %}
+                <li class="page-item {{ 'active' if page == pagination.current_page else '' }}">
+                    <a class="page-link" href="/tweets?page={{ page }}{% if keyword %}&keyword={{ keyword }}{% endif %}">{{ page }}</a>
+                </li>
+                {% endfor %}
+                
+                {% if pagination.current_page < pagination.total_pages %}
+                <li class="page-item">
+                    <a class="page-link" href="/tweets?page={{ pagination.current_page + 1 }}{% if keyword %}&keyword={{ keyword }}{% endif %}" aria-label="Next">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="/tweets?page={{ pagination.total_pages }}{% if keyword %}&keyword={{ keyword }}{% endif %}" aria-label="Last">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Next">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                </li>
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Last">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Modal for Tweet Analysis -->
+<div class="modal fade" id="analysisModal" tabindex="-1" aria-labelledby="analysisModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="analysisModalLabel">تحلیل توییت</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">در حال بارگذاری...</span>
+                    </div>
+                    <p class="mt-3">تحلیل توییت در فازهای بعدی پیاده‌سازی خواهد شد</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // دکمه‌های تحلیل
+    const analyzeButtons = document.querySelectorAll('.analyze-btn');
+    const analysisModal = new bootstrap.Modal(document.getElementById('analysisModal'));
+    
+    analyzeButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const tweetId = this.dataset.id;
+            const twitterId = this.dataset.tweetId;
+            
+            // نمایش مودال
+            analysisModal.show();
+            
+            // در این مرحله این قابلیت پیاده‌سازی نشده است
+            setTimeout(() => {
+                analysisModal.hide();
+                alert('این قابلیت در فازهای بعدی پیاده‌سازی خواهد شد');
+            }, 1500);
+        });
+    });
+});
+</script>
+{% endblock %}

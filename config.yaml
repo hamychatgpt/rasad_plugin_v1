@@ -1,0 +1,50 @@
+app:
+  name: "Twitter Analysis System"
+  version: "0.1.0"
+  description: "سیستم رصد و تحلیل توییتر"
+
+twitter_api:
+  base_url: "https://api.twitterapi.io"
+  endpoints:
+    search: "/twitter/tweet/advanced_search"
+    user_info: "/twitter/user/info"
+    user_tweets: "/twitter/user/last_tweets"
+    tweets_by_ids: "/twitter/tweets"
+  rate_limits:
+    default_qps: 200
+    default_rpm: 12000
+  retry:
+    max_attempts: 5
+    initial_delay: 1.0
+    exponential_factor: 2.0
+    jitter: 0.1
+
+anthropic_api:
+  models:
+    default: "claude-3-7-sonnet-20250219"
+    fallback: "claude-3-5-sonnet-20241022"
+  options:
+    max_tokens: 1024
+    temperature: 0.7
+
+collector:
+  default_interval: 300  # 5 minutes
+  batch_size: 100
+  keyword_search:
+    min_interval: 60  # 1 minute
+    max_interval: 3600  # 1 hour
+    default_query_type: "Latest"
+
+database:
+  pool_size: 5
+  max_overflow: 10
+  pool_timeout: 30
+  pool_recycle: 1800
+
+web:
+  templates_dir: "templates"
+  static_dir: "static"
+  default_lang: "fa"
+  pagination:
+    default_page_size: 20
+    max_page_size: 100

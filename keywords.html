@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h1 class="mb-0">مدیریت کلیدواژه‌ها</h1>
+    </div>
+    <div class="col-md-6 text-start">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addKeywordModal">
+            <i class="fas fa-plus me-2"></i> افزودن کلیدواژه
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-tag me-2"></i> لیست کلیدواژه‌ها
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>متن کلیدواژه</th>
+                        <th>وضعیت</th>
+                        <th>تاریخ ایجاد</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for keyword in keywords %}
+                    <tr>
+                        <td>{{ keyword.text }}</td>
+                        <td>
+                            {% if keyword.active %}
+                            <span class="badge bg-success">فعال</span>
+                            {% else %}
+                            <span class="badge bg-secondary">غیرفعال</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ keyword.created_at.strftime('%Y/%m/%d %H:%M') }}</td>
+                        <td>
+                            <a href="/tweets?keyword={{ keyword.text }}" class="btn btn-sm btn-info text-white" title="مشاهده توییت‌ها">
+                                <i class="fab fa-twitter"></i>
+                            </a>
+                            <button class="btn btn-sm btn-warning toggle-keyword" data-id="{{ keyword.id }}" data-active="{{ keyword.active|lower }}" title="{{ 'غیرفعال کردن' if keyword.active else 'فعال کردن' }}">
+                                <i class="fas {{ 'fa-toggle-on' if keyword.active else 'fa-toggle-off' }}"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-keyword" data-id="{{ keyword.id }}" data-text="{{ keyword.text }}" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-3">هیچ کلیدواژه‌ای یافت نشد</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer">
+        <nav aria-label="صفحه‌بندی">
+            <ul class="pagination justify-content-center mb-0">
+                {% if pagination.current_page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="/keywords?page=1" aria-label="First">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="/keywords?page={{ pagination.current_page - 1 }}" aria-label="Previous">
+                        <i class="fas fa-angle-right"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="First">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                </li>
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Previous">
+                        <i class="fas fa-angle-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page in range(max(1, pagination.current_page - 2), min(pagination.total_pages + 1, pagination.current_page + 3)) %}
+                <li class="page-item {{ 'active' if page == pagination.current_page else '' }}">
+                    <a class="page-link" href="/keywords?page={{ page }}">{{ page }}</a>
+                </li>
+                {% endfor %}
+                
+                {% if pagination.current_page < pagination.total_pages %}
+                <li class="page-item">
+                    <a class="page-link" href="/keywords?page={{ pagination.current_page + 1 }}" aria-label="Next">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="/keywords?page={{ pagination.total_pages }}" aria-label="Last">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Next">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                </li>
+                <li class="page-item disabled">
+                    <a class="page-link" href="#" aria-label="Last">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Modal for adding new keyword -->
+<div class="modal fade" id="addKeywordModal" tabindex="-1" aria-labelledby="addKeywordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addKeywordModalLabel">افزودن کلیدواژه جدید</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-keyword-form">
+                    <div class="mb-3">
+                        <label for="keyword-text" class="form-label">متن کلیدواژه</label>
+                        <input type="text" class="form-control" id="keyword-text" placeholder="مانند: ایران" required>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="keyword-active" checked>
+                        <label class="form-check-label" for="keyword-active">فعال</label>
+                    </div>
+                </form>
+                <div id="add-result" class="mt-3 d-none">
+                    <div class="alert" role="alert"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+                <button type="button" id="save-keyword-btn" class="btn btn-primary">ذخیره</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // افزودن کلیدواژه جدید
+    const saveKeywordBtn = document.getElementById('save-keyword-btn');
+    const addResult = document.getElementById('add-result');
+    
+    saveKeywordBtn.addEventListener('click', async function() {
+        const keywordText = document.getElementById('keyword-text').value.trim();
+        const keywordActive = document.getElementById('keyword-active').checked;
+        
+        if (!keywordText) {
+            alert('لطفاً متن کلیدواژه را وارد کنید');
+            return;
+        }
+        
+        // نمایش وضعیت در حال بارگذاری
+        saveKeywordBtn.disabled = true;
+        saveKeywordBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> در حال ذخیره...';
+        addResult.classList.remove('d-none');
+        addResult.querySelector('.alert').className = 'alert alert-info';
+        addResult.querySelector('.alert').innerHTML = 'در حال ذخیره کلیدواژه...';
+        
+        try {
+            const response = await fetch('/api/keywords', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: keywordText,
+                    active: keywordActive
+                }),
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                addResult.querySelector('.alert').className = 'alert alert-success';
+                addResult.querySelector('.alert').innerHTML = 'کلیدواژه با موفقیت ذخیره شد!';
+                
+                // بازیابی صفحه بعد از ۲ ثانیه
+                setTimeout(function() {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                addResult.querySelector('.alert').className = 'alert alert-danger';
+                addResult.querySelector('.alert').innerHTML = `خطا در ذخیره کلیدواژه: ${data.error || 'خطای نامشخص'}`;
+            }
+        } catch (error) {
+            addResult.querySelector('.alert').className = 'alert alert-danger';
+            addResult.querySelector('.alert').innerHTML = `خطا در ارتباط با سرور: ${error.message}`;
+        } finally {
+            saveKeywordBtn.disabled = false;
+            saveKeywordBtn.innerHTML = 'ذخیره';
+        }
+    });
+    
+    // تغییر وضعیت کلیدواژه (فعال/غیرفعال)
+    const toggleButtons = document.querySelectorAll('.toggle-keyword');
+    toggleButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const keywordId = this.dataset.id;
+            const isActive = this.dataset.active === 'true';
+            const newStatus = !isActive;
+            
+            // در این مرحله این قابلیت پیاده‌سازی نشده است
+            alert('این قابلیت در مراحل بعدی پیاده‌سازی خواهد شد');
+        });
+    });
+    
+    // حذف کلیدواژه
+    const deleteButtons = document.querySelectorAll('.delete-keyword');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const keywordId = this.dataset.id;
+            const keywordText = this.dataset.text;
+            
+            // در این مرحله این قابلیت پیاده‌سازی نشده است
+            alert('این قابلیت در مراحل بعدی پیاده‌سازی خواهد شد');
+        });
+    });
+});
+</script>
+{% endblock %}

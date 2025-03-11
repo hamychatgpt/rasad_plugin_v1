@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 text-center">
+        <h1 class="display-4 mb-4">سیستم رصد و تحلیل توییتر</h1>
+        <p class="lead">
+            این سیستم به شما امکان جمع‌آوری، ذخیره‌سازی و تحلیل داده‌های توییتر را می‌دهد.
+        </p>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-search fa-4x mb-3 text-primary"></i>
+                <h3 class="card-title">جمع‌آوری داده</h3>
+                <p class="card-text">
+                    جمع‌آوری خودکار توییت‌ها بر اساس کلیدواژه‌ها، کاربران و موضوعات مختلف
+                </p>
+                <a href="/collections" class="btn btn-primary">شروع جمع‌آوری</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-filter fa-4x mb-3 text-success"></i>
+                <h3 class="card-title">پردازش و فیلترینگ</h3>
+                <p class="card-text">
+                    فیلترینگ داده‌ها و حذف محتوای تکراری و نامرتبط برای افزایش کیفیت تحلیل
+                </p>
+                <a href="/tweets" class="btn btn-success">مشاهده توییت‌ها</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-bar fa-4x mb-3 text-info"></i>
+                <h3 class="card-title">تحلیل و گزارش‌گیری</h3>
+                <p class="card-text">
+                    تحلیل احساسات، استخراج موضوعات و شناسایی روندها در داده‌های جمع‌آوری شده
+                </p>
+                <a href="/dashboard" class="btn btn-info text-white">مشاهده داشبورد</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">جمع‌آوری سریع</h3>
+            </div>
+            <div class="card-body">
+                <form id="quick-collect-form">
+                    <div class="mb-3">
+                        <label for="keywords" class="form-label">کلیدواژه‌ها (با کاما جدا شوند)</label>
+                        <input type="text" class="form-control" id="keywords" placeholder="مثال: ایران، اقتصاد، فناوری" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-play me-2"></i> شروع جمع‌آوری
+                        </button>
+                    </div>
+                </form>
+                <div id="result-area" class="mt-3 d-none">
+                    <div class="alert" role="alert">
+                        <div id="result-message"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('quick-collect-form');
+    const resultArea = document.getElementById('result-area');
+    const resultMessage = document.getElementById('result-message');
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const keywordsInput = document.getElementById('keywords').value;
+        const keywords = keywordsInput.split(',').map(k => k.trim()).filter(k => k);
+        
+        if (keywords.length === 0) {
+            alert('لطفاً حداقل یک کلیدواژه وارد کنید');
+            return;
+        }
+        
+        // نمایش وضعیت در حال بارگذاری
+        resultArea.classList.remove('d-none');
+        resultArea.querySelector('.alert').className = 'alert alert-info';
+        resultMessage.innerHTML = '<div class="d-flex align-items-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div> در حال جمع‌آوری توییت‌ها...</div>';
+        
+        try {
+            const response = await fetch('/api/collect-now', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ keywords }),
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                resultArea.querySelector('.alert').className = 'alert alert-success';
+                resultMessage.innerHTML = `
+                    <div>
+                        <i class="fas fa-check-circle me-2"></i>
+                        جمع‌آوری با موفقیت انجام شد!
+                    </div>
+                    <div class="mt-2">
+                        تعداد توییت‌های جمع‌آوری شده: <strong>${data.collected}</strong><br>
+                        تعداد توییت‌های ذخیره شده: <strong>${data.saved}</strong>
+                    </div>
+                    <div class="mt-2">
+                        <a href="/tweets" class="btn btn-sm btn-primary">مشاهده توییت‌ها</a>
+                    </div>
+                `;
+            } else {
+                resultArea.querySelector('.alert').className = 'alert alert-danger';
+                resultMessage.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> خطا در جمع‌آوری: ${data.error || 'خطای نامشخص'}`;
+            }
+        } catch (error) {
+            resultArea.querySelector('.alert').className = 'alert alert-danger';
+            resultMessage.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> خطا در ارتباط با سرور: ${error.message}`;
+        }
+    });
+});
+</script>
+{% endblock %}
