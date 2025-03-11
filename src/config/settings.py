@@ -6,25 +6,20 @@
 """
 
 import os
-print("Current environment variables:")
-print(f"DATABASE_URL = {os.environ.get('DATABASE_URL')}")
-print(f"SECRET_KEY = {os.environ.get('SECRET_KEY')}")
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import yaml
 from dotenv import load_dotenv
-print("After loading .env:")
-print(f"DATABASE_URL = {os.environ.get('DATABASE_URL')}")
 from pydantic import BaseModel, Field, validator
 from pydantic_settings import BaseSettings
 
 # بارگذاری متغیرهای محیطی
 load_dotenv(verbose=True)
-print("After loading .env:", os.environ.get("DATABASE_URL"))
+
 # مسیر پایه پروژه
-BASE_DIR = Path(__file__).parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 class DatabaseSettings(BaseModel):
@@ -41,7 +36,7 @@ class DatabaseSettings(BaseModel):
 
 class TwitterAPISettings(BaseModel):
     """تنظیمات Twitter API"""
-    api_key: str = Field(..., alias="TWITTER_API_KEY")
+    api_key: str = Field(default="missing_api_key", alias="TWITTER_API_KEY")
     base_url: str = "https://api.twitterapi.io"
     default_qps: int = 200
     default_rpm: int = 12000
@@ -53,7 +48,7 @@ class TwitterAPISettings(BaseModel):
 
 class AnthropicAPISettings(BaseModel):
     """تنظیمات Anthropic API"""
-    api_key: str = Field(..., alias="ANTHROPIC_API_KEY")
+    api_key: str = Field(default="missing_api_key", alias="ANTHROPIC_API_KEY")
     default_model: str = "claude-3-7-sonnet-20250219"
     fallback_model: str = "claude-3-5-sonnet-20241022"
     max_tokens: int = 1024
@@ -84,7 +79,7 @@ class Settings(BaseSettings):
     """تنظیمات اصلی برنامه"""
     app_env: str = Field(default="production", alias="APP_ENV")
     debug: bool = Field(default=False, alias="DEBUG")
-    secret_key: str = Field(..., alias="SECRET_KEY")
+    secret_key: str = Field(default="default_secret_key", alias="SECRET_KEY")
     
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     twitter_api: TwitterAPISettings = Field(default_factory=TwitterAPISettings)
@@ -121,9 +116,11 @@ class Settings(BaseSettings):
 @lru_cache()
 def load_yaml_config() -> Dict[str, Any]:
     """بارگذاری تنظیمات از فایل YAML"""
-    config_path = BASE_DIR  / "config" / "config.yaml"
+    config_path = BASE_DIR / "src" / "config" / "config.yaml"
     if not config_path.exists():
-        return {}
+        config_path = BASE_DIR / "config" / "config.yaml"
+        if not config_path.exists():
+            return {}
     
     with open(config_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)

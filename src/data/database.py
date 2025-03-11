@@ -56,21 +56,26 @@ def create_async_db_engine(db_url: str, **kwargs) -> AsyncEngine:
             
             # اگر URL با // شروع نشود، آن را به فرمت استاندارد تبدیل می‌کنیم
             if not db_url.startswith("sqlite://"):
-                db_url = f"sqlite+aiosqlite:///{Path.home()}/hooshyar.db"
+                # استفاده از مسیر نسبی به جای Path.home()
+                data_dir = Path(os.environ.get("DATA_DIR", ".")).resolve()
+                db_path = data_dir / "rasad.db"
+                db_url = f"sqlite+aiosqlite:///{db_path}"
             else:
                 db_url = db_url.replace("sqlite://", "sqlite+aiosqlite://")
             
             engine_args["connect_args"] = {"check_same_thread": False}
+            logger.info(f"Using SQLite database at {db_url}")
         
         # برای PostgreSQL
         elif db_url.startswith("postgresql"):
             db_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
+            logger.info(f"Using PostgreSQL database")
         
         return create_async_engine(db_url, **engine_args)
     
     except Exception as e:
+        logger.error(f"Failed to create async database engine: {e}", exc_info=True)
         raise DatabaseError(f"Failed to create async database engine: {str(e)}")
-
 
 def setup_db(db_url: Optional[str] = None) -> None:
     """راه‌اندازی اتصال‌های دیتابیس"""
@@ -122,15 +127,17 @@ async def create_tables() -> None:
     try:
         # ایجاد جدول‌ها
         async with async_engine.begin() as conn:
-            # در حالت توسعه، جدول‌ها را از ابتدا ایجاد می‌کنیم
-            if settings.debug:
+            # در حالت توسعه با تنظیم محیطی RESET_DB=true، جدول‌ها را از ابتدا ایجاد می‌کنیم
+            if settings.debug and os.environ.get("RESET_DB", "").lower() == "true":
+                logger.warning("Dropping all database tables due to RESET_DB=true")
                 await conn.run_sync(Base.metadata.drop_all)
             
             await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database tables created or verified")
     
     except Exception as e:
+        logger.error(f"Failed to create database tables: {e}", exc_info=True)
         raise DatabaseError(f"Failed to create database tables: {str(e)}")
-
 
 async def close_db_connections() -> None:
     """بستن تمام اتصال‌های دیتابیس"""

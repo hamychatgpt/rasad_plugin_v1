@@ -26,9 +26,8 @@ from src.core.exceptions import TwitterAnalysisError
 from src.core.plugin import PluginManager, plugin_manager
 from src.data.database import create_tables, get_db_session
 from src.data.models import Collection, CollectionStatus, CollectionType
-from src.data.repositories import (CollectionRepository,
-                                               KeywordRepository,
-                                               TweetRepository, UserRepository)
+from src.data.repositories import (CollectionRepository, KeywordRepository,
+                                  TweetRepository, UserRepository)
 from src.processor.pipeline import TweetProcessingPipeline
 from src.web.api import router as api_router
 
@@ -57,9 +56,16 @@ app.add_middleware(
 )
 
 # تنظیم مسیرهای استاتیک و قالب‌ها
-BASE_DIR = Path(__file__).resolve().parent.parent
-STATIC_DIR = BASE_DIR / "web" / "static"
-TEMPLATES_DIR = BASE_DIR / "web" / "templates"
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+TEMPLATES_DIR = BASE_DIR / "templates"
+
+# بررسی وجود مسیرها
+if not STATIC_DIR.exists():
+    logger.warning(f"Static directory not found at {STATIC_DIR}")
+
+if not TEMPLATES_DIR.exists():
+    logger.warning(f"Templates directory not found at {TEMPLATES_DIR}")
 
 # ثبت فایل‌های استاتیک
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -96,20 +102,28 @@ async def get_session() -> AsyncSession:
 @app.on_event("startup")
 async def startup_event():
     """رویداد راه‌اندازی برنامه"""
+    logger.info("Application starting up...")
     try:
         # ایجاد جدول‌های دیتابیس
         await create_tables()
         logger.info("Database tables created or verified")
         
-        # کشف و راه‌اندازی پلاگین‌ها
-        plugin_manager.discover_plugins("src.collector")
-        plugin_manager.initialize_all()
-        logger.info("Plugins initialized")
+        try:
+            # کشف و راه‌اندازی پلاگین‌ها
+            plugin_manager.discover_plugins("src.collector")
+            plugin_manager.initialize_all()
+            logger.info("Plugins initialized")
+        except Exception as e:
+            logger.error(f"Error initializing plugins: {e}", exc_info=True)
+            # ادامه کار برنامه حتی در صورت خطا در پلاگین‌ها
         
     except Exception as e:
-        logger.error(f"Critical error during startup: {str(e)}", exc_info=True)
-        import sys
-        sys.exit(1)  # خروج در صورت خطای بحرانی
+        logger.error(f"Critical error during startup: {e}", exc_info=True)
+        # بازگشت خطا بدون خروج از برنامه
+        # در حالت توسعه می‌توان برنامه را متوقف کرد اما در محیط تولید ادامه می‌دهیم
+        if os.environ.get("APP_ENV") == "development":
+            import sys
+            sys.exit(1)
 
 
 @app.on_event("shutdown")
@@ -365,20 +379,34 @@ async def create_collection(
         logger.error(f"Error creating collection: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/api/collect-now", response_model=Dict)
-async def collect_now(
-    keywords: List[str]
-):
+@app.post("/api/collect-now")
+async def collect_now(keywords_data: Dict[str, Any]):
     """اجرای فوری جمع‌آوری توییت‌ها بر اساس کلیدواژه‌ها"""
     try:
+        # پشتیبانی از هر دو فرمت ورودی
+        keyword_list = []
+        if isinstance(keywords_data, dict):
+            if "keywords" in keywords_data:
+                keyword_list = keywords_data.get("keywords", [])
+            else:
+                # اگر فقط یک کلید دارد و آن کلید یک آرایه است
+                values = list(keywords_data.values())
+                if len(values) == 1 and isinstance(values[0], list):
+                    keyword_list = values[0]
+        
+        if not keyword_list:
+            return {
+                "success": False,
+                "error": "No keywords provided"
+            }
+        
         # ایجاد کلاینت توییتر
         twitter_client = create_twitter_client()
         
         # اجرای جمع‌آوری
         collected, saved = await collect_by_keywords(
             twitter_client=twitter_client,
-            keywords=keywords
+            keywords=keyword_list
         )
         
         return {
@@ -387,10 +415,12 @@ async def collect_now(
             "saved": saved
         }
     except Exception as e:
-        logger.error(f"Error collecting tweets: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+        logger.error(f"Error collecting tweets: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e)
+        }
+    
 @app.post("/api/process-tweets", response_model=Dict)
 async def process_tweets(
     limit: int = Query(100, ge=1, le=1000)
@@ -408,19 +438,18 @@ async def process_tweets(
         logger.error(f"Error processing tweets: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.exception_handler(TwitterAnalysisError)
-async def hooshyar_exception_handler(request: Request, exc: TwitterAnalysisError):
-    """مدیریت خطاهای سفارشی برنامه"""
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """مدیریت سایر خطاها"""
+    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={
             "success": False,
-            "error": exc.message,
-            "details": exc.details
+            "error": "خطای داخلی سرور",
+            "details": str(exc) if settings.debug else None
         }
     )
-
 
 def run_app():
     """اجرای برنامه"""
