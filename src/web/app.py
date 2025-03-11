@@ -102,7 +102,7 @@ async def startup_event():
         logger.info("Database tables created or verified")
         
         # کشف و راه‌اندازی پلاگین‌ها
-        plugin_manager.discover_plugins("hooshyar.collector")
+        plugin_manager.discover_plugins("src.collector")
         plugin_manager.initialize_all()
         logger.info("Plugins initialized")
         
@@ -427,7 +427,7 @@ def run_app():
     import uvicorn
     
     uvicorn.run(
-        "hooshyar.web.app:app",
+        "src.web.app:app",
         host=settings.web.host,
         port=settings.web.port,
         reload=settings.debug
