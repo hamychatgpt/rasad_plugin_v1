@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "twitter_analysis"
+name = "hooshyar"
 version = "0.1.0"
 description = "سیستم رصد و تحلیل توییتر"
 requires-python = ">=3.10"
@@ -38,7 +38,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["twitter_analysis*"]
+include = ["hooshyar*"]
 
 [tool.black]
 line-length = 88

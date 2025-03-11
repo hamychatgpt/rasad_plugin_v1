@@ -10,10 +10,10 @@ from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from twitter_analysis.data.database import get_db_session
-from twitter_analysis.data.models import Tweet
-from twitter_analysis.data.repositories import TweetRepository
-from twitter_analysis.processor.filters import FilterPipeline, create_basic_filter_pipeline
+from src.data.database import get_db_session
+from src.data.models import Tweet
+from src.data.repositories import TweetRepository
+from src.processor.filters import FilterPipeline, create_basic_filter_pipeline
 
 logger = logging.getLogger(__name__)
 

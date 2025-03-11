@@ -9,7 +9,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Set, Union
 
-from twitter_analysis.data.models import Tweet
+from src.data.models import Tweet
 
 logger = logging.getLogger(__name__)
 

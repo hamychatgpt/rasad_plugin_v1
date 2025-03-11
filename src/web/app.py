@@ -18,19 +18,19 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.sessions import SessionMiddleware
 
-from twitter_analysis.api.twitter import create_twitter_client
-from twitter_analysis.collector.keyword import collect_by_keywords
-from twitter_analysis.config.settings import settings
-from twitter_analysis.core.di import container
-from twitter_analysis.core.exceptions import TwitterAnalysisError
-from twitter_analysis.core.plugin import PluginManager, plugin_manager
-from twitter_analysis.data.database import create_tables, get_db_session
-from twitter_analysis.data.models import Collection, CollectionStatus, CollectionType
-from twitter_analysis.data.repositories import (CollectionRepository,
+from src.api.twitter import create_twitter_client
+from src.collector.keyword import collect_by_keywords
+from src.config.settings import settings
+from src.core.di import container
+from src.core.exceptions import TwitterAnalysisError
+from src.core.plugin import PluginManager, plugin_manager
+from src.data.database import create_tables, get_db_session
+from src.data.models import Collection, CollectionStatus, CollectionType
+from src.data.repositories import (CollectionRepository,
                                                KeywordRepository,
                                                TweetRepository, UserRepository)
-from twitter_analysis.processor.pipeline import TweetProcessingPipeline
-from twitter_analysis.web.api import router as api_router
+from src.processor.pipeline import TweetProcessingPipeline
+from src.web.api import router as api_router
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +57,9 @@ app.add_middleware(
 )
 
 # تنظیم مسیرهای استاتیک و قالب‌ها
-BASE_DIR = Path(__file__).parent
-STATIC_DIR = BASE_DIR / settings.web.static_dir
-TEMPLATES_DIR = BASE_DIR / settings.web.templates_dir
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+STATIC_DIR = BASE_DIR / "hooshyar" / "web" / "static"
+TEMPLATES_DIR = BASE_DIR / "hooshyar" / "web" / "templates"
 
 # ثبت فایل‌های استاتیک
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -102,12 +102,14 @@ async def startup_event():
         logger.info("Database tables created or verified")
         
         # کشف و راه‌اندازی پلاگین‌ها
-        plugin_manager.discover_plugins("twitter_analysis.collector")
+        plugin_manager.discover_plugins("hooshyar.collector")
         plugin_manager.initialize_all()
         logger.info("Plugins initialized")
         
     except Exception as e:
-        logger.error(f"Error during startup: {str(e)}", exc_info=True)
+        logger.error(f"Critical error during startup: {str(e)}", exc_info=True)
+        import sys
+        sys.exit(1)  # خروج در صورت خطای بحرانی
 
 
 @app.on_event("shutdown")
@@ -408,7 +410,7 @@ async def process_tweets(
 
 
 @app.exception_handler(TwitterAnalysisError)
-async def twitter_analysis_exception_handler(request: Request, exc: TwitterAnalysisError):
+async def hooshyar_exception_handler(request: Request, exc: TwitterAnalysisError):
     """مدیریت خطاهای سفارشی برنامه"""
     return JSONResponse(
         status_code=500,
@@ -425,7 +427,7 @@ def run_app():
     import uvicorn
     
     uvicorn.run(
-        "twitter_analysis.web.app:app",
+        "hooshyar.web.app:app",
         host=settings.web.host,
         port=settings.web.port,
         reload=settings.debug

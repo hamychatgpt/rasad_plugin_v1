@@ -12,12 +12,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from twitter_analysis.api.twitter import create_twitter_client
-from twitter_analysis.collector.keyword import collect_by_keywords
-from twitter_analysis.config.settings import settings
-from twitter_analysis.data.database import get_db_session
-from twitter_analysis.data.models import Collection, CollectionStatus, CollectionType
-from twitter_analysis.data.repositories import (CollectionRepository,
+from src.api.twitter import create_twitter_client
+from src.collector.keyword import collect_by_keywords
+from src.config.settings import settings
+from src.data.database import get_db_session
+from src.data.models import Collection, CollectionStatus, CollectionType
+from src.data.repositories import (CollectionRepository,
                                                KeywordRepository,
                                                TweetRepository, UserRepository)
 

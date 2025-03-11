@@ -10,15 +10,15 @@ import traceback
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Type
 
-from twitter_analysis.api.interfaces import TwitterAPIClient
-from twitter_analysis.api.twitter import create_twitter_client
-from twitter_analysis.collector.collector import BaseCollector
-from twitter_analysis.collector.keyword import KeywordCollector
-from twitter_analysis.core.exceptions import CollectorError
-from twitter_analysis.core.plugin import Plugin
-from twitter_analysis.data.database import get_db_session
-from twitter_analysis.data.models import Collection, CollectionStatus, CollectionType
-from twitter_analysis.data.repositories import CollectionRepository
+from src.api.interfaces import TwitterAPIClient
+from src.api.twitter import create_twitter_client
+from src.collector.collector import BaseCollector
+from src.collector.keyword import KeywordCollector
+from src.core.exceptions import CollectorError
+from src.core.plugin import Plugin
+from src.data.database import get_db_session
+from src.data.models import Collection, CollectionStatus, CollectionType
+from src.data.repositories import CollectionRepository
 
 logger = logging.getLogger(__name__)
 

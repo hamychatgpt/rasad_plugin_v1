@@ -12,12 +12,12 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from twitter_analysis.api.interfaces import SearchParameters, TweetData, TwitterAPIClient
-from twitter_analysis.config.settings import settings
-from twitter_analysis.core.exceptions import CollectorError
-from twitter_analysis.data.database import get_db_session
-from twitter_analysis.data.models import Collection, CollectionStatus
-from twitter_analysis.data.repositories import (CollectionRepository, KeywordRepository,
+from src.api.interfaces import SearchParameters, TweetData, TwitterAPIClient
+from src.config.settings import settings
+from src.core.exceptions import CollectorError
+from src.data.database import get_db_session
+from src.data.models import Collection, CollectionStatus
+from src.data.repositories import (CollectionRepository, KeywordRepository,
                                                TweetRepository, UserRepository)
 
 logger = logging.getLogger(__name__)

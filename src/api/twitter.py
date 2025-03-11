@@ -14,10 +14,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import aiohttp
 from pydantic import ValidationError
 
-from twitter_analysis.api.interfaces import (SearchParameters, TweetData,
+from hooshyar.api.interfaces import (SearchParameters, TweetData,
                                             TwitterAPIClient, UserData)
-from twitter_analysis.config.settings import settings
-from twitter_analysis.core.exceptions import (RateLimitError, TwitterAPIError,
+from hooshyar.config.settings import settings
+from hooshyar.core.exceptions import (RateLimitError, TwitterAPIError,
                                              ValidationError as AppValidationError)
 
 

@@ -12,8 +12,8 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from twitter_analysis.core.exceptions import DatabaseError
-from twitter_analysis.data.models import (Analysis, Collection, CollectionKeyword,
+from src.core.exceptions import DatabaseError
+from src.data.models import (Analysis, Collection, CollectionKeyword,
                                          CollectionStatus, CollectionType,
                                          Keyword, Tweet, TweetKeyword, User)
 

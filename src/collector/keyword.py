@@ -7,13 +7,13 @@
 import logging
 from typing import List, Optional, Set, Tuple
 
-from twitter_analysis.api.interfaces import SearchParameters, TweetData, TwitterAPIClient
-from twitter_analysis.collector.collector import BaseCollector, TweetSaver
-from twitter_analysis.config.settings import settings
-from twitter_analysis.core.exceptions import CollectorError
-from twitter_analysis.data.database import get_db_session
-from twitter_analysis.data.models import Collection, CollectionType
-from twitter_analysis.data.repositories import CollectionRepository, KeywordRepository
+from src.api.interfaces import SearchParameters, TweetData, TwitterAPIClient
+from src.collector.collector import BaseCollector, TweetSaver
+from src.config.settings import settings
+from src.core.exceptions import CollectorError
+from src.data.database import get_db_session
+from src.data.models import Collection, CollectionType
+from src.data.repositories import CollectionRepository, KeywordRepository
 
 logger = logging.getLogger(__name__)
 

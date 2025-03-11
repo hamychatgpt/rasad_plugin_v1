@@ -14,13 +14,13 @@ import anthropic
 from anthropic.types import MessageParam
 from pydantic import ValidationError
 
-from twitter_analysis.api.interfaces import (SentimentAnalysisResult,
+from src.api.interfaces import (SentimentAnalysisResult,
                                             TextAnalysisClient,
                                             TextAnalysisRequest,
                                             TextAnalysisResponse,
                                             TopicExtractionResult)
-from twitter_analysis.config.settings import settings
-from twitter_analysis.core.exceptions import (AnthropicAPIError,
+from src.config.settings import settings
+from src.core.exceptions import (AnthropicAPIError,
                                              ValidationError as AppValidationError)
 
 

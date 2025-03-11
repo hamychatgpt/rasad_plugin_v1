@@ -116,7 +116,7 @@ class Settings(BaseSettings):
 @lru_cache()
 def load_yaml_config() -> Dict[str, Any]:
     """بارگذاری تنظیمات از فایل YAML"""
-    config_path = BASE_DIR / "twitter_analysis" / "config" / "config.yaml"
+    config_path = BASE_DIR  / "config" / "config.yaml"
     if not config_path.exists():
         return {}
     

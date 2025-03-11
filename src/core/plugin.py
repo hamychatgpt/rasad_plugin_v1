@@ -11,7 +11,7 @@ import pkgutil
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
-from twitter_analysis.core.di import container
+from src.core.di import container
 
 T = TypeVar('T', bound='Plugin')
 

@@ -14,7 +14,7 @@ from sqlalchemy import (Boolean, Column, DateTime, Enum as SQLAEnum,
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from twitter_analysis.data.database import Base
+from src.data.database import Base
 
 
 class CollectionStatus(str, Enum):

@@ -1,3 +1,4 @@
+from pathlib import Path
 """
 ماژول اتصال به دیتابیس
 
@@ -13,8 +14,8 @@ from sqlalchemy.ext.asyncio import (AsyncEngine, AsyncSession,
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-from twitter_analysis.config.settings import settings
-from twitter_analysis.core.exceptions import DatabaseError
+from src.config.settings import settings
+from src.core.exceptions import DatabaseError
 
 # ایجاد پایه برای مدل‌های SQLAlchemy
 convention = {
@@ -55,7 +56,7 @@ def create_async_db_engine(db_url: str, **kwargs) -> AsyncEngine:
             
             # اگر URL با // شروع نشود، آن را به فرمت استاندارد تبدیل می‌کنیم
             if not db_url.startswith("sqlite://"):
-                db_url = f"sqlite+aiosqlite:///{db_url}"
+                db_url = f"sqlite+aiosqlite:///{Path.home()}/hooshyar.db"
             else:
                 db_url = db_url.replace("sqlite://", "sqlite+aiosqlite://")
             
