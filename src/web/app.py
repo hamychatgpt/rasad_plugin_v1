@@ -57,9 +57,9 @@ app.add_middleware(
 )
 
 # تنظیم مسیرهای استاتیک و قالب‌ها
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-STATIC_DIR = BASE_DIR / "hooshyar" / "web" / "static"
-TEMPLATES_DIR = BASE_DIR / "hooshyar" / "web" / "templates"
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "web" / "static"
+TEMPLATES_DIR = BASE_DIR / "web" / "templates"
 
 # ثبت فایل‌های استاتیک
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
