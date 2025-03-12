@@ -83,7 +83,7 @@
     <div class="card-footer">
         <nav aria-label="صفحه‌بندی">
             <ul class="pagination justify-content-center mb-0">
-                {% if pagination.current_page > 1 %}
+                {% if pagination and pagination.current_page > 1 %}
                 <li class="page-item">
                     <a class="page-link" href="/collections?page=1" aria-label="First">
                         <i class="fas fa-angle-double-right"></i>
@@ -107,13 +107,19 @@
                 </li>
                 {% endif %}
                 
-                {% for page in range(max(1, pagination.current_page - 2), min(pagination.total_pages + 1, pagination.current_page + 3)) %}
-                <li class="page-item {{ 'active' if page == pagination.current_page else '' }}">
-                    <a class="page-link" href="/collections?page={{ page }}">{{ page }}</a>
-                </li>
-                {% endfor %}
+                {% if pagination and pagination.total_pages > 0 %}
+                    {% for page in range(max(1, pagination.current_page - 2), min(pagination.total_pages + 1, pagination.current_page + 3)) %}
+                    <li class="page-item {{ 'active' if pagination.current_page == page else '' }}">
+                        <a class="page-link" href="/collections?page={{ page }}">{{ page }}</a>
+                    </li>
+                    {% endfor %}
+                {% else %}
+                    <li class="page-item active">
+                        <a class="page-link" href="#">1</a>
+                    </li>
+                {% endif %}
                 
-                {% if pagination.current_page < pagination.total_pages %}
+                {% if pagination and pagination.current_page < pagination.total_pages %}
                 <li class="page-item">
                     <a class="page-link" href="/collections?page={{ pagination.current_page + 1 }}" aria-label="Next">
                         <i class="fas fa-angle-left"></i>

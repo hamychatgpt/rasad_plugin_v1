@@ -7,7 +7,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -72,7 +72,16 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # تنظیم موتور قالب
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
-
+templates.env.globals.update({
+    "max": max,
+    "min": min,
+    "len": len,
+    "str": str,
+    "hasattr": hasattr,
+    "isinstance": isinstance,
+    "list": list,
+    "dict": dict
+})
 # افزودن روتر API
 app.include_router(api_router, prefix="/api")
 
@@ -397,28 +406,41 @@ async def collect_now(keywords_data: Dict[str, Any]):
         if not keyword_list:
             return {
                 "success": False,
-                "error": "No keywords provided"
+                "error": "کلیدواژه‌ای ارائه نشده است"
             }
         
         # ایجاد کلاینت توییتر
         twitter_client = create_twitter_client()
         
-        # اجرای جمع‌آوری
-        collected, saved = await collect_by_keywords(
-            twitter_client=twitter_client,
-            keywords=keyword_list
-        )
-        
-        return {
-            "success": True,
-            "collected": collected,
-            "saved": saved
-        }
+        try:
+            # اجرای جمع‌آوری
+            collected, saved = await collect_by_keywords(
+                twitter_client=twitter_client,
+                keywords=keyword_list
+            )
+            
+            if collected == 0:
+                return {
+                    "success": False,
+                    "error": "هیچ توییتی یافت نشد"
+                }
+            
+            return {
+                "success": True,
+                "collected": collected,
+                "saved": saved
+            }
+        except TwitterAPIError as e:
+            logger.error(f"Twitter API error: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": f"خطای API توییتر: {str(e)}"
+            }
     except Exception as e:
         logger.error(f"Error collecting tweets: {e}", exc_info=True)
         return {
             "success": False,
-            "error": str(e)
+            "error": f"خطای جمع‌آوری توییت‌ها: {str(e)}"
         }
     
 @app.post("/api/process-tweets", response_model=Dict)

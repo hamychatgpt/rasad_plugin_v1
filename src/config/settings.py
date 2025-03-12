@@ -8,11 +8,11 @@
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, List, Optional, Union, Any 
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator  # تغییر validator به field_validator
 from pydantic_settings import BaseSettings
 
 # بارگذاری متغیرهای محیطی
@@ -87,31 +87,37 @@ class Settings(BaseSettings):
     collector: CollectorSettings = Field(default_factory=CollectorSettings)
     web: WebSettings = Field(default_factory=WebSettings)
 
-    @validator("database", pre=True)
-    def create_database_settings(cls, v, values):
+    # تغییر validator به field_validator
+    @field_validator("database", mode="before")  # mode='before' معادل pre=True
+    @classmethod  # اضافه کردن @classmethod
+    def create_database_settings(cls, v):  # حذف values
         """ساخت تنظیمات دیتابیس با استفاده از مقادیر محیطی"""
         if isinstance(v, Dict):
             return v
         return DatabaseSettings()
     
-    @validator("twitter_api", pre=True)
-    def create_twitter_api_settings(cls, v, values):
+    @field_validator("twitter_api", mode="before")
+    @classmethod
+    def create_twitter_api_settings(cls, v):
         """ساخت تنظیمات Twitter API با استفاده از مقادیر محیطی"""
         if isinstance(v, Dict):
             return v
         return TwitterAPISettings()
     
-    @validator("anthropic_api", pre=True)
-    def create_anthropic_api_settings(cls, v, values):
+    @field_validator("anthropic_api", mode="before")
+    @classmethod
+    def create_anthropic_api_settings(cls, v):
         """ساخت تنظیمات Anthropic API با استفاده از مقادیر محیطی"""
         if isinstance(v, Dict):
             return v
         return AnthropicAPISettings()
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
+    # تغییر Config به model_config
+    model_config = {
+        "extra": "ignore",  # اجازه دادن فیلدهای اضافی
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+    }
 
 @lru_cache()
 def load_yaml_config() -> Dict[str, Any]:

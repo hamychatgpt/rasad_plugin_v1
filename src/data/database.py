@@ -1,4 +1,3 @@
-from pathlib import Path
 """
 ماژول اتصال به دیتابیس
 
@@ -6,6 +5,9 @@ from pathlib import Path
 """
 
 import contextlib
+import logging
+import os  # اطمینان از import کردن os
+from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, Optional
 
 from sqlalchemy import URL, MetaData, create_engine
@@ -16,6 +18,9 @@ from sqlalchemy.orm import sessionmaker
 
 from src.config.settings import settings
 from src.core.exceptions import DatabaseError
+
+# تعریف logger برای این ماژول
+logger = logging.getLogger(__name__)
 
 # ایجاد پایه برای مدل‌های SQLAlchemy
 convention = {

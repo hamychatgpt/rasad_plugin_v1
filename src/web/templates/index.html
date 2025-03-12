@@ -87,57 +87,61 @@ document.addEventListener('DOMContentLoaded', function() {
     const resultArea = document.getElementById('result-area');
     const resultMessage = document.getElementById('result-message');
     
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const keywordsInput = document.getElementById('keywords').value;
-        const keywords = keywordsInput.split(',').map(k => k.trim()).filter(k => k);
-        
-        if (keywords.length === 0) {
-            alert('لطفاً حداقل یک کلیدواژه وارد کنید');
-            return;
-        }
-        
-        // نمایش وضعیت در حال بارگذاری
-        resultArea.classList.remove('d-none');
-        resultArea.querySelector('.alert').className = 'alert alert-info';
-        resultMessage.innerHTML = '<div class="d-flex align-items-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div> در حال جمع‌آوری توییت‌ها...</div>';
-        
-        try {
-            const response = await fetch('/api/collect-now', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ keywords }),
-            });
+    if (form && resultArea && resultMessage) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
             
-            const data = await response.json();
+            const keywordsInput = document.getElementById('keywords');
+            if (!keywordsInput) return;
             
-            if (data.success) {
-                resultArea.querySelector('.alert').className = 'alert alert-success';
-                resultMessage.innerHTML = `
-                    <div>
-                        <i class="fas fa-check-circle me-2"></i>
-                        جمع‌آوری با موفقیت انجام شد!
-                    </div>
-                    <div class="mt-2">
-                        تعداد توییت‌های جمع‌آوری شده: <strong>${data.collected}</strong><br>
-                        تعداد توییت‌های ذخیره شده: <strong>${data.saved}</strong>
-                    </div>
-                    <div class="mt-2">
-                        <a href="/tweets" class="btn btn-sm btn-primary">مشاهده توییت‌ها</a>
-                    </div>
-                `;
-            } else {
-                resultArea.querySelector('.alert').className = 'alert alert-danger';
-                resultMessage.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> خطا در جمع‌آوری: ${data.error || 'خطای نامشخص'}`;
+            const keywords = keywordsInput.value.split(',').map(k => k.trim()).filter(k => k);
+            
+            if (keywords.length === 0) {
+                alert('لطفاً حداقل یک کلیدواژه وارد کنید');
+                return;
             }
-        } catch (error) {
-            resultArea.querySelector('.alert').className = 'alert alert-danger';
-            resultMessage.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> خطا در ارتباط با سرور: ${error.message}`;
-        }
-    });
+            
+            // نمایش وضعیت در حال بارگذاری
+            resultArea.classList.remove('d-none');
+            resultArea.querySelector('.alert').className = 'alert alert-info';
+            resultMessage.innerHTML = '<div class="d-flex align-items-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div> در حال جمع‌آوری توییت‌ها...</div>';
+            
+            try {
+                const response = await fetch('/api/collect-now', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ keywords }),
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultArea.querySelector('.alert').className = 'alert alert-success';
+                    resultMessage.innerHTML = `
+                        <div>
+                            <i class="fas fa-check-circle me-2"></i>
+                            جمع‌آوری با موفقیت انجام شد!
+                        </div>
+                        <div class="mt-2">
+                            تعداد توییت‌های جمع‌آوری شده: <strong>${data.collected}</strong><br>
+                            تعداد توییت‌های ذخیره شده: <strong>${data.saved}</strong>
+                        </div>
+                        <div class="mt-2">
+                            <a href="/tweets" class="btn btn-sm btn-primary">مشاهده توییت‌ها</a>
+                        </div>
+                    `;
+                } else {
+                    resultArea.querySelector('.alert').className = 'alert alert-danger';
+                    resultMessage.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> خطا در جمع‌آوری: ${data.error || 'خطای نامشخص'}`;
+                }
+            } catch (error) {
+                resultArea.querySelector('.alert').className = 'alert alert-danger';
+                resultMessage.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> خطا در ارتباط با سرور: ${error.message}`;
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

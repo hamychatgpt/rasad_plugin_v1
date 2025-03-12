@@ -14,7 +14,7 @@
                 <div class="row no-gutters align-items-center">
                     <div class="col me-2">
                         <div class="text-muted mb-1 fs-6">تعداد توییت‌ها</div>
-                        <div class="h2 mb-0 fw-bold text-primary">{{ stats.tweet_count }}</div>
+                        <div class="h2 mb-0 fw-bold text-primary">{{ stats.tweet_count if stats and stats.tweet_count is not none else 0 }}</div>
                     </div>
                     <div class="col-auto">
                         <i class="fab fa-twitter fa-2x text-gray-300"></i>
@@ -30,7 +30,7 @@
                 <div class="row no-gutters align-items-center">
                     <div class="col me-2">
                         <div class="text-muted mb-1 fs-6">تعداد کاربران</div>
-                        <div class="h2 mb-0 fw-bold text-success">{{ stats.user_count }}</div>
+                        <div class="h2 mb-0 fw-bold text-success">{{ stats.user_count if stats and stats.user_count is not none else 0 }}</div>
                     </div>
                     <div class="col-auto">
                         <i class="fas fa-users fa-2x text-gray-300"></i>
@@ -46,7 +46,7 @@
                 <div class="row no-gutters align-items-center">
                     <div class="col me-2">
                         <div class="text-muted mb-1 fs-6">تعداد کلیدواژه‌ها</div>
-                        <div class="h2 mb-0 fw-bold text-info">{{ stats.keyword_count }}</div>
+                        <div class="h2 mb-0 fw-bold text-info">{{ stats.keyword_count if stats and stats.keyword_count is not none else 0 }}</div>
                     </div>
                     <div class="col-auto">
                         <i class="fas fa-tag fa-2x text-gray-300"></i>
@@ -62,7 +62,7 @@
                 <div class="row no-gutters align-items-center">
                     <div class="col me-2">
                         <div class="text-muted mb-1 fs-6">تعداد جمع‌آوری‌ها</div>
-                        <div class="h2 mb-0 fw-bold text-warning">{{ stats.collection_count }}</div>
+                        <div class="h2 mb-0 fw-bold text-warning">{{ stats.collection_count if stats and stats.collection_count is not none else 0 }}</div>
                     </div>
                     <div class="col-auto">
                         <i class="fas fa-tasks fa-2x text-gray-300"></i>
@@ -91,14 +91,14 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for tweet in latest_tweets %}
+                            {% for tweet in latest_tweets if latest_tweets %}
                             <tr>
-                                <td class="text-truncate" style="max-width: 300px;" title="{{ tweet.text }}">{{ tweet.text }}</td>
-                                <td>{{ tweet.user.username if tweet.user else 'نامشخص' }}</td>
-                                <td>{{ tweet.created_at.strftime('%Y/%m/%d %H:%M') }}</td>
+                                <td class="text-truncate" style="max-width: 300px;" title="{{ tweet.text if tweet.text }}">{{ tweet.text if tweet.text else "بدون متن" }}</td>
+                                <td>{{ tweet.user.username if tweet.user and hasattr(tweet.user, 'username') and tweet.user.username else 'نامشخص' }}</td>
+                                <td>{{ tweet.created_at.strftime('%Y/%m/%d %H:%M') if tweet.created_at else 'نامشخص' }}</td>
                                 <td>
-                                    <span title="لایک‌ها"><i class="fas fa-heart text-danger"></i> {{ tweet.like_count }}</span>
-                                    <span class="ms-2" title="ریتوییت‌ها"><i class="fas fa-retweet text-success"></i> {{ tweet.retweet_count }}</span>
+                                    <span title="لایک‌ها"><i class="fas fa-heart text-danger"></i> {{ tweet.like_count if tweet.like_count is not none else 0 }}</span>
+                                    <span class="ms-2" title="ریتوییت‌ها"><i class="fas fa-retweet text-success"></i> {{ tweet.retweet_count if tweet.retweet_count is not none else 0 }}</span>
                                 </td>
                             </tr>
                             {% else %}
@@ -123,9 +123,9 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    {% for keyword in active_keywords %}
+                    {% for keyword in active_keywords if active_keywords %}
                     <div class="col-6 mb-2">
-                        <a href="/tweets?keyword={{ keyword.text }}" class="btn btn-outline-primary btn-sm w-100">{{ keyword.text }}</a>
+                        <a href="/tweets?keyword={{ keyword.text if keyword.text else '' }}" class="btn btn-outline-primary btn-sm w-100">{{ keyword.text if keyword.text else 'بدون متن' }}</a>
                     </div>
                     {% else %}
                     <div class="col-12 text-center">
@@ -179,16 +179,18 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for collection in active_collections %}
+                            {% for collection in active_collections if active_collections %}
                             <tr>
-                                <td>{{ collection.name }}</td>
+                                <td>{{ collection.name if collection.name else 'بدون نام' }}</td>
                                 <td>
-                                    {% if collection.collection_type.value == 'keyword' %}
+                                    {% if collection.collection_type and collection.collection_type.value == 'keyword' %}
                                     <span class="badge bg-info">کلیدواژه</span>
-                                    {% elif collection.collection_type.value == 'user' %}
+                                    {% elif collection.collection_type and collection.collection_type.value == 'user' %}
                                     <span class="badge bg-primary">کاربر</span>
-                                    {% elif collection.collection_type.value == 'topic' %}
+                                    {% elif collection.collection_type and collection.collection_type.value == 'topic' %}
                                     <span class="badge bg-success">موضوع</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">نامشخص</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ collection.next_run_at.strftime('%Y/%m/%d %H:%M') if collection.next_run_at else 'تعیین نشده' }}</td>
@@ -248,95 +250,101 @@ document.addEventListener('DOMContentLoaded', function() {
     const startCollectBtn = document.getElementById('start-collect-btn');
     const collectResult = document.getElementById('collect-result');
     
-    startCollectBtn.addEventListener('click', async function() {
-        const keywordsInput = document.getElementById('keywords-modal').value;
-        const keywords = keywordsInput.split(',').map(k => k.trim()).filter(k => k);
-        
-        if (keywords.length === 0) {
-            alert('لطفاً حداقل یک کلیدواژه وارد کنید');
-            return;
-        }
-        
-        // نمایش وضعیت در حال بارگذاری
-        startCollectBtn.disabled = true;
-        startCollectBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> در حال اجرا...';
-        collectResult.classList.remove('d-none');
-        collectResult.querySelector('.alert').className = 'alert alert-info';
-        collectResult.querySelector('.alert').innerHTML = 'در حال جمع‌آوری توییت‌ها...';
-        
-        try {
-            const response = await fetch('/api/collect-now', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ keywords }),
-            });
+    if (startCollectBtn && collectResult) {
+        startCollectBtn.addEventListener('click', async function() {
+            const keywordsInput = document.getElementById('keywords-modal');
+            if (!keywordsInput) return;
             
-            const data = await response.json();
+            const keywords = keywordsInput.value.split(',').map(k => k.trim()).filter(k => k);
             
-            if (data.success) {
-                collectResult.querySelector('.alert').className = 'alert alert-success';
-                collectResult.querySelector('.alert').innerHTML = `
-                    جمع‌آوری با موفقیت انجام شد!<br>
-                    تعداد توییت‌های جمع‌آوری شده: <strong>${data.collected}</strong><br>
-                    تعداد توییت‌های ذخیره شده: <strong>${data.saved}</strong>
-                `;
-                
-                // بازیابی صفحه بعد از ۳ ثانیه
-                setTimeout(function() {
-                    window.location.reload();
-                }, 3000);
-            } else {
-                collectResult.querySelector('.alert').className = 'alert alert-danger';
-                collectResult.querySelector('.alert').innerHTML = `خطا در جمع‌آوری: ${data.error || 'خطای نامشخص'}`;
+            if (keywords.length === 0) {
+                alert('لطفاً حداقل یک کلیدواژه وارد کنید');
+                return;
             }
-        } catch (error) {
-            collectResult.querySelector('.alert').className = 'alert alert-danger';
-            collectResult.querySelector('.alert').innerHTML = `خطا در ارتباط با سرور: ${error.message}`;
-        } finally {
-            startCollectBtn.disabled = false;
-            startCollectBtn.innerHTML = 'شروع جمع‌آوری';
-        }
-    });
+            
+            // نمایش وضعیت در حال بارگذاری
+            startCollectBtn.disabled = true;
+            startCollectBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> در حال اجرا...';
+            collectResult.classList.remove('d-none');
+            collectResult.querySelector('.alert').className = 'alert alert-info';
+            collectResult.querySelector('.alert').innerHTML = 'در حال جمع‌آوری توییت‌ها...';
+            
+            try {
+                const response = await fetch('/api/collect-now', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ keywords }),
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    collectResult.querySelector('.alert').className = 'alert alert-success';
+                    collectResult.querySelector('.alert').innerHTML = `
+                        جمع‌آوری با موفقیت انجام شد!<br>
+                        تعداد توییت‌های جمع‌آوری شده: <strong>${data.collected}</strong><br>
+                        تعداد توییت‌های ذخیره شده: <strong>${data.saved}</strong>
+                    `;
+                    
+                    // بازیابی صفحه بعد از ۳ ثانیه
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 3000);
+                } else {
+                    collectResult.querySelector('.alert').className = 'alert alert-danger';
+                    collectResult.querySelector('.alert').innerHTML = `خطا در جمع‌آوری: ${data.error || 'خطای نامشخص'}`;
+                }
+            } catch (error) {
+                collectResult.querySelector('.alert').className = 'alert alert-danger';
+                collectResult.querySelector('.alert').innerHTML = `خطا در ارتباط با سرور: ${error.message}`;
+            } finally {
+                startCollectBtn.disabled = false;
+                startCollectBtn.innerHTML = 'شروع جمع‌آوری';
+            }
+        });
+    }
     
     // پردازش توییت‌ها
     const processTweetsBtn = document.getElementById('process-tweets-btn');
     const processResult = document.getElementById('process-result');
     
-    processTweetsBtn.addEventListener('click', async function() {
-        // نمایش وضعیت در حال بارگذاری
-        processTweetsBtn.disabled = true;
-        processTweetsBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> در حال اجرا...';
-        processResult.classList.remove('d-none');
-        processResult.querySelector('.alert').className = 'alert alert-info';
-        processResult.querySelector('.alert').innerHTML = 'در حال پردازش توییت‌ها...';
-        
-        try {
-            const response = await fetch('/api/process-tweets', {
-                method: 'POST'
-            });
+    if (processTweetsBtn && processResult) {
+        processTweetsBtn.addEventListener('click', async function() {
+            // نمایش وضعیت در حال بارگذاری
+            processTweetsBtn.disabled = true;
+            processTweetsBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> در حال اجرا...';
+            processResult.classList.remove('d-none');
+            processResult.querySelector('.alert').className = 'alert alert-info';
+            processResult.querySelector('.alert').innerHTML = 'در حال پردازش توییت‌ها...';
             
-            const data = await response.json();
-            
-            if (data.success) {
-                processResult.querySelector('.alert').className = 'alert alert-success';
-                processResult.querySelector('.alert').innerHTML = `
-                    پردازش با موفقیت انجام شد!<br>
-                    تعداد توییت‌های پردازش شده: <strong>${data.processed}</strong>
-                `;
-            } else {
+            try {
+                const response = await fetch('/api/process-tweets', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    processResult.querySelector('.alert').className = 'alert alert-success';
+                    processResult.querySelector('.alert').innerHTML = `
+                        پردازش با موفقیت انجام شد!<br>
+                        تعداد توییت‌های پردازش شده: <strong>${data.processed}</strong>
+                    `;
+                } else {
+                    processResult.querySelector('.alert').className = 'alert alert-danger';
+                    processResult.querySelector('.alert').innerHTML = `خطا در پردازش: ${data.error || 'خطای نامشخص'}`;
+                }
+            } catch (error) {
                 processResult.querySelector('.alert').className = 'alert alert-danger';
-                processResult.querySelector('.alert').innerHTML = `خطا در پردازش: ${data.error || 'خطای نامشخص'}`;
+                processResult.querySelector('.alert').innerHTML = `خطا در ارتباط با سرور: ${error.message}`;
+            } finally {
+                processTweetsBtn.disabled = false;
+                processTweetsBtn.innerHTML = '<i class="fas fa-sync me-2"></i> پردازش توییت‌ها';
             }
-        } catch (error) {
-            processResult.querySelector('.alert').className = 'alert alert-danger';
-            processResult.querySelector('.alert').innerHTML = `خطا در ارتباط با سرور: ${error.message}`;
-        } finally {
-            processTweetsBtn.disabled = false;
-            processTweetsBtn.innerHTML = '<i class="fas fa-sync me-2"></i> پردازش توییت‌ها';
-        }
-    });
+        });
+    }
 });
 </script>
 {% endblock %}

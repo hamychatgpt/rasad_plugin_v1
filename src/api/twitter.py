@@ -89,85 +89,90 @@ class TwitterClient(TwitterAPIClient):
         jitter_amount = delay * self.jitter
         return delay + random.uniform(-jitter_amount, jitter_amount)
     
-    async def _make_request(
-        self, 
-        method: str, 
-        endpoint: str, 
-        **kwargs
-    ) -> Dict[str, Any]:
-        """اجرای یک درخواست HTTP با مدیریت محدودیت نرخ و بازتلاش"""
-        await self._ensure_session()
-        assert self.session is not None
+async def _make_request(
+    self, 
+    method: str, 
+    endpoint: str, 
+    **kwargs
+) -> Dict[str, Any]:
+    """اجرای یک درخواست HTTP با مدیریت محدودیت نرخ و بازتلاش"""
+    await self._ensure_session()
+    assert self.session is not None
+    
+    url = f"{self.base_url}{endpoint}"
+    last_exception = None
+    
+    for attempt in range(self.max_attempts):
+        # بررسی محدودیت نرخ
+        can_request, wait_time = self._check_rate_limit(endpoint)
+        if not can_request and wait_time is not None:
+            if attempt < self.max_attempts - 1:  # بازتلاش در تلاش بعدی
+                await asyncio.sleep(wait_time)
+            else:  # تلاش‌های ما به پایان رسید
+                await self._close_session()  # بستن جلسه قبل از خطا
+                raise RateLimitError(
+                    message=f"Rate limit exceeded for endpoint {endpoint}",
+                    retry_after=int(wait_time),
+                    status_code=429
+                )
         
-        url = f"{self.base_url}{endpoint}"
-        last_exception = None
+        try:
+            async with getattr(self.session, method.lower())(url, **kwargs) as response:
+                # به‌روزرسانی محدودیت نرخ
+                self._update_rate_limits(endpoint, response.headers)
+                
+                # بررسی کد وضعیت
+                if response.status == 429:  # محدودیت نرخ
+                    retry_after = int(response.headers.get("Retry-After", "60"))
+                    self.rate_limits[endpoint] = {
+                        "limit": 0,
+                        "remaining": 0,
+                        "reset": time.time() + retry_after
+                    }
+                    if attempt < self.max_attempts - 1:
+                        await asyncio.sleep(retry_after)
+                        continue
+                    else:
+                        await self._close_session()  # بستن جلسه قبل از خطا
+                        raise RateLimitError(
+                            message="Rate limit exceeded",
+                            retry_after=retry_after,
+                            status_code=429,
+                            response_body=await response.text()
+                        )
+                
+                # خطاهای دیگر
+                if response.status >= 400:
+                    response_text = await response.text()
+                    if attempt < self.max_attempts - 1:
+                        # عقب‌نشینی نمایی
+                        backoff = self._calculate_backoff(attempt)
+                        await asyncio.sleep(backoff)
+                        continue
+                    else:
+                        # بستن جلسه قبل از خطا
+                        await self._close_session()
+                        raise TwitterAPIError(
+                            message=f"Twitter API error: {response.status}",
+                            status_code=response.status,
+                            response_body=response_text
+                        )
+                
+                # درخواست موفق
+                return await response.json()
         
-        for attempt in range(self.max_attempts):
-            # بررسی محدودیت نرخ
-            can_request, wait_time = self._check_rate_limit(endpoint)
-            if not can_request and wait_time is not None:
-                if attempt < self.max_attempts - 1:  # بازتلاش در تلاش بعدی
-                    await asyncio.sleep(wait_time)
-                else:  # تلاش‌های ما به پایان رسید
-                    raise RateLimitError(
-                        message=f"Rate limit exceeded for endpoint {endpoint}",
-                        retry_after=int(wait_time),
-                        status_code=429
-                    )
-            
-            try:
-                async with getattr(self.session, method.lower())(url, **kwargs) as response:
-                    # به‌روزرسانی محدودیت نرخ
-                    self._update_rate_limits(endpoint, response.headers)
-                    
-                    # بررسی کد وضعیت
-                    if response.status == 429:  # محدودیت نرخ
-                        retry_after = int(response.headers.get("Retry-After", "60"))
-                        self.rate_limits[endpoint] = {
-                            "limit": 0,
-                            "remaining": 0,
-                            "reset": time.time() + retry_after
-                        }
-                        if attempt < self.max_attempts - 1:
-                            await asyncio.sleep(retry_after)
-                            continue
-                        else:
-                            raise RateLimitError(
-                                message="Rate limit exceeded",
-                                retry_after=retry_after,
-                                status_code=429,
-                                response_body=await response.text()
-                            )
-                    
-                    # خطاهای دیگر
-                    if response.status >= 400:
-                        response_text = await response.text()
-                        if attempt < self.max_attempts - 1:
-                            # عقب‌نشینی نمایی
-                            backoff = self._calculate_backoff(attempt)
-                            await asyncio.sleep(backoff)
-                            continue
-                        else:
-                            raise TwitterAPIError(
-                                message=f"Twitter API error: {response.status}",
-                                status_code=response.status,
-                                response_body=response_text
-                            )
-                    
-                    # درخواست موفق
-                    return await response.json()
-            
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                last_exception = e
-                if attempt < self.max_attempts - 1:
-                    backoff = self._calculate_backoff(attempt)
-                    await asyncio.sleep(backoff)
-                    continue
-        
-        # اگر تمام تلاش‌ها شکست خورد
-        raise TwitterAPIError(
-            message=f"Failed after {self.max_attempts} attempts: {str(last_exception)}"
-        )
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            last_exception = e
+            if attempt < self.max_attempts - 1:
+                backoff = self._calculate_backoff(attempt)
+                await asyncio.sleep(backoff)
+                continue
+    
+    # اگر تمام تلاش‌ها شکست خورد، جلسه را ببندیم
+    await self._close_session()
+    raise TwitterAPIError(
+        message=f"Failed after {self.max_attempts} attempts: {str(last_exception)}"
+    )
     
     def _parse_tweet_data(self, tweet_data: Dict[str, Any]) -> TweetData:
         """تبدیل داده خام توییت به مدل TweetData"""
