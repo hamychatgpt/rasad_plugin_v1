@@ -11,16 +11,29 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union, Any 
 
 import yaml
-from dotenv import load_dotenv
-from pydantic import BaseModel, Field, field_validator  # تغییر validator به field_validator
+from dotenv import load_dotenv, find_dotenv
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 
-# بارگذاری متغیرهای محیطی
-load_dotenv(verbose=True)
+# پیدا کردن مسیر فایل .env
+env_path = find_dotenv()
+print(f"Loading environment from: {env_path or 'Not found'}")
+
+# چاپ مقدار API key (فقط چند کاراکتر اول برای امنیت)
+api_key = os.environ.get("TWITTER_API_KEY", "")
+if api_key:
+    print(f"TWITTER_API_KEY found in environment: {api_key[:4]}...")
+else:
+    print("TWITTER_API_KEY not found in environment")
+
+get_settings.cache_clear() if 'get_settings' in globals() else None
+load_yaml_config.cache_clear() if 'load_yaml_config' in globals() else None
+
+# بارگذاری مجدد با override=True
+load_dotenv(override=True)
 
 # مسیر پایه پروژه
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
 
 class DatabaseSettings(BaseModel):
     """تنظیمات دیتابیس"""

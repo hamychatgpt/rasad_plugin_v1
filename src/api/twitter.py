@@ -3,7 +3,7 @@
 
 این ماژول کلاینت Twitter API را بر اساس مستندات API پیاده‌سازی می‌کند.
 """
-
+import os
 import asyncio
 import json
 import logging
@@ -467,17 +467,17 @@ class TwitterClient(TwitterAPIClient):
         """پاکسازی منابع هنگام خروج از متن"""
         await self._close_session()
 
-
 def create_twitter_client() -> TwitterAPIClient:
     """تابع سازنده برای ایجاد نمونه از کلاینت توییتر"""
-    api_key = settings.twitter_api.api_key
+    # Чтение напрямую из переменных окружения вместо settings
+    api_key = os.environ.get("TWITTER_API_KEY", "")
     base_url = settings.twitter_api.base_url
     
-    if not api_key or api_key == "missing_api_key":
+    if not api_key:
         logger.warning("Twitter API key is missing or invalid. Using mock client that will return empty results.")
-        return MockTwitterClient()  # استفاده از کلاینت شبیه‌سازی شده در صورت نبود API key
+        return MockTwitterClient()
     
-    logger.info(f"Creating Twitter client with base URL: {base_url}")
+    logger.info(f"Creating real Twitter client with API key: {api_key[:4]}...")
     return TwitterClient(
         api_key=api_key,
         base_url=base_url
