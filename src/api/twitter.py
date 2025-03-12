@@ -6,19 +6,63 @@
 
 import asyncio
 import json
+import logging
 import random
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
 
 import aiohttp
 from pydantic import ValidationError
 
 from src.api.interfaces import (SearchParameters, TweetData,
-                                            TwitterAPIClient, UserData)
+                               TwitterAPIClient, UserData)
 from src.config.settings import settings
 from src.core.exceptions import (RateLimitError, TwitterAPIError,
-                                             ValidationError as AppValidationError)
+                                ValidationError as AppValidationError)
+
+logger = logging.getLogger(__name__)
+
+
+class MockTwitterClient(TwitterAPIClient):
+    """پیاده‌سازی شبیه‌سازی شده Twitter API برای زمانی که API key نامعتبر است"""
+    
+    async def search_tweets(self, params: SearchParameters) -> List[TweetData]:
+        """شبیه‌سازی جستجوی توییت‌ها"""
+        logger.warning(f"Using mock client for search_tweets with query: {params.query}")
+        return []
+    
+    async def get_user_info(self, username: str) -> UserData:
+        """شبیه‌سازی دریافت اطلاعات کاربر"""
+        logger.warning(f"Using mock client for get_user_info with username: {username}")
+        # ساخت یک کاربر شبیه‌سازی شده
+        return UserData(
+            user_id="mock_user_id",
+            username=username,
+            display_name=f"Mock User ({username})",
+            description="This is a mock user for testing",
+            followers_count=0,
+            following_count=0,
+            created_at=datetime.now(),
+            verified=False,
+            profile_image_url=None,
+            raw_data={}
+        )
+    
+    async def get_user_tweets(
+        self, 
+        user_id: str, 
+        include_replies: bool = False, 
+        cursor: Optional[str] = None
+    ) -> List[TweetData]:
+        """شبیه‌سازی دریافت توییت‌های کاربر"""
+        logger.warning(f"Using mock client for get_user_tweets with user_id: {user_id}")
+        return []
+    
+    async def get_tweets_by_ids(self, tweet_ids: List[str]) -> List[TweetData]:
+        """شبیه‌سازی دریافت توییت‌ها با شناسه"""
+        logger.warning(f"Using mock client for get_tweets_by_ids with {len(tweet_ids)} ids")
+        return []
 
 
 class TwitterClient(TwitterAPIClient):
@@ -45,16 +89,22 @@ class TwitterClient(TwitterAPIClient):
         self.jitter = settings.twitter_api.jitter
     
     async def _ensure_session(self) -> None:
-        """اطمینان از وجود جلسه HTTP"""
+        """اطمینان از وجود جلسه HTTP با تنظیم صحیح هدرها"""
         if self.session is None or self.session.closed:
-            self.session = aiohttp.ClientSession(
-                headers={"X-API-Key": self.api_key}
-            )
+            headers = {
+                "X-API-Key": self.api_key,
+                "x-api-key": self.api_key,  # اضافه کردن هر دو فرمت احتمالی هدر
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+            self.session = aiohttp.ClientSession(headers=headers)
+            logger.debug(f"Created new HTTP session with headers: {headers}")
     
     async def _close_session(self) -> None:
         """بستن جلسه HTTP"""
         if self.session is not None and not self.session.closed:
             await self.session.close()
+            logger.debug("HTTP session closed")
     
     def _update_rate_limits(self, endpoint: str, headers: Dict[str, str]) -> None:
         """به‌روزرسانی اطلاعات محدودیت نرخ از هدرهای پاسخ"""
@@ -73,8 +123,8 @@ class TwitterClient(TwitterAPIClient):
         """بررسی محدودیت نرخ برای یک نقطه پایانی"""
         rate_info = self.rate_limits.get(endpoint, self.rate_limits["default"])
         
-        remaining = int(rate_info["remaining"])
-        reset_time = float(rate_info["reset"])
+        remaining = int(cast(int, rate_info["remaining"]))
+        reset_time = float(cast(float, rate_info["reset"]))
         current_time = time.time()
         
         if remaining <= 0 and current_time < reset_time:
@@ -89,101 +139,159 @@ class TwitterClient(TwitterAPIClient):
         jitter_amount = delay * self.jitter
         return delay + random.uniform(-jitter_amount, jitter_amount)
     
-async def _make_request(
-    self, 
-    method: str, 
-    endpoint: str, 
-    **kwargs
-) -> Dict[str, Any]:
-    """اجرای یک درخواست HTTP با مدیریت محدودیت نرخ و بازتلاش"""
-    await self._ensure_session()
-    assert self.session is not None
-    
-    url = f"{self.base_url}{endpoint}"
-    last_exception = None
-    
-    for attempt in range(self.max_attempts):
-        # بررسی محدودیت نرخ
-        can_request, wait_time = self._check_rate_limit(endpoint)
-        if not can_request and wait_time is not None:
-            if attempt < self.max_attempts - 1:  # بازتلاش در تلاش بعدی
-                await asyncio.sleep(wait_time)
-            else:  # تلاش‌های ما به پایان رسید
-                await self._close_session()  # بستن جلسه قبل از خطا
-                raise RateLimitError(
-                    message=f"Rate limit exceeded for endpoint {endpoint}",
-                    retry_after=int(wait_time),
-                    status_code=429
-                )
+    async def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
+        """اجرای یک درخواست HTTP با مدیریت محدودیت نرخ و بازتلاش"""
+        await self._ensure_session()
+        assert self.session is not None
         
-        try:
-            async with getattr(self.session, method.lower())(url, **kwargs) as response:
-                # به‌روزرسانی محدودیت نرخ
-                self._update_rate_limits(endpoint, response.headers)
-                
-                # بررسی کد وضعیت
-                if response.status == 429:  # محدودیت نرخ
-                    retry_after = int(response.headers.get("Retry-After", "60"))
-                    self.rate_limits[endpoint] = {
-                        "limit": 0,
-                        "remaining": 0,
-                        "reset": time.time() + retry_after
-                    }
-                    if attempt < self.max_attempts - 1:
-                        await asyncio.sleep(retry_after)
-                        continue
-                    else:
-                        await self._close_session()  # بستن جلسه قبل از خطا
-                        raise RateLimitError(
-                            message="Rate limit exceeded",
-                            retry_after=retry_after,
-                            status_code=429,
-                            response_body=await response.text()
-                        )
-                
-                # خطاهای دیگر
-                if response.status >= 400:
+        url = f"{self.base_url}{endpoint}"
+        last_exception = None
+        
+        # لیست کدهای وضعیت قابل بازتلاش
+        retryable_status_codes = {429, 500, 502, 503, 504}
+        
+        # اطمینان از اینکه API key در هدرها وجود دارد
+        if 'headers' not in kwargs:
+            kwargs['headers'] = {}
+        
+        # اضافه کردن API key به هدرهای درخواست برای اطمینان
+        kwargs['headers'].update({
+            "X-API-Key": self.api_key,
+            "x-api-key": self.api_key
+        })
+        
+        logger.debug(f"Making request to {url} with method {method}")
+        
+        for attempt in range(self.max_attempts):
+            # بررسی محدودیت نرخ
+            can_request, wait_time = self._check_rate_limit(endpoint)
+            if not can_request and wait_time is not None:
+                if attempt < self.max_attempts - 1:  # بازتلاش در تلاش بعدی
+                    logger.info(f"Rate limit hit, waiting {wait_time:.2f}s before retry ({attempt+1}/{self.max_attempts})")
+                    await asyncio.sleep(wait_time)
+                else:  # تلاش‌های ما به پایان رسید
+                    await self._close_session()  # بستن جلسه قبل از خطا
+                    raise RateLimitError(
+                        message=f"Rate limit exceeded for endpoint {endpoint}",
+                        retry_after=int(wait_time),
+                        status_code=429
+                    )
+            
+            try:
+                method_func = getattr(self.session, method.lower())
+                async with method_func(url, **kwargs) as response:
+                    # به‌روزرسانی محدودیت نرخ
+                    self._update_rate_limits(endpoint, response.headers)
+                    
                     response_text = await response.text()
-                    if attempt < self.max_attempts - 1:
-                        # عقب‌نشینی نمایی
-                        backoff = self._calculate_backoff(attempt)
-                        await asyncio.sleep(backoff)
-                        continue
-                    else:
-                        # بستن جلسه قبل از خطا
+                    logger.debug(f"Received response: HTTP {response.status}, body length: {len(response_text)}")
+                    
+                    # بررسی خطای احراز هویت که نیاز به بازتلاش ندارد
+                    if response.status == 401:
+                        logger.error(f"Authentication error (HTTP 401): {response_text[:200]}")
                         await self._close_session()
                         raise TwitterAPIError(
-                            message=f"Twitter API error: {response.status}",
+                            message=f"Twitter API authentication error: API key is invalid or missing",
+                            status_code=401,
+                            response_body=response_text
+                        )
+                    
+                    # بررسی کد وضعیت
+                    if response.status == 429:  # محدودیت نرخ
+                        retry_after = int(response.headers.get("Retry-After", "60"))
+                        self.rate_limits[endpoint] = {
+                            "limit": 0,
+                            "remaining": 0,
+                            "reset": time.time() + retry_after
+                        }
+                        logger.warning(f"Rate limit exceeded (HTTP 429), retry after {retry_after}s")
+                        if attempt < self.max_attempts - 1:
+                            await asyncio.sleep(retry_after)
+                            continue
+                        else:
+                            await self._close_session()  # بستن جلسه قبل از خطا
+                            raise RateLimitError(
+                                message="Rate limit exceeded",
+                                retry_after=retry_after,
+                                status_code=429,
+                                response_body=response_text
+                            )
+                    
+                    # خطاهای قابل بازتلاش
+                    elif response.status in retryable_status_codes:
+                        logger.warning(f"Retryable error: HTTP {response.status} - {response_text[:100]}...")
+                        if attempt < self.max_attempts - 1:
+                            backoff = self._calculate_backoff(attempt)
+                            logger.info(f"Retrying in {backoff:.2f}s (attempt {attempt+1}/{self.max_attempts})")
+                            await asyncio.sleep(backoff)
+                            continue
+                        else:
+                            await self._close_session()
+                            raise TwitterAPIError(
+                                message=f"Twitter API error after max retries: HTTP {response.status}",
+                                status_code=response.status,
+                                response_body=response_text
+                            )
+                    
+                    # خطاهای غیرقابل بازتلاش
+                    elif response.status >= 400:
+                        logger.error(f"Non-retryable error: HTTP {response.status} - {response_text[:100]}...")
+                        await self._close_session()
+                        raise TwitterAPIError(
+                            message=f"Twitter API error: HTTP {response.status}",
+                            status_code=response.status,
+                            response_body=response_text
+                        )
+                    
+                    # درخواست موفق
+                    try:
+                        return json.loads(response_text)
+                    except json.JSONDecodeError:
+                        logger.error(f"Invalid JSON response: {response_text[:100]}...")
+                        raise TwitterAPIError(
+                            message="Invalid JSON response from Twitter API",
                             status_code=response.status,
                             response_body=response_text
                         )
                 
-                # درخواست موفق
-                return await response.json()
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                logger.warning(f"Network error: {str(e)}")
+                last_exception = e
+                if attempt < self.max_attempts - 1:
+                    backoff = self._calculate_backoff(attempt)
+                    logger.info(f"Retrying in {backoff:.2f}s (attempt {attempt+1}/{self.max_attempts})")
+                    await asyncio.sleep(backoff)
+                    continue
+                else:
+                    logger.error(f"Network error after max retries: {str(e)}")
         
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            last_exception = e
-            if attempt < self.max_attempts - 1:
-                backoff = self._calculate_backoff(attempt)
-                await asyncio.sleep(backoff)
-                continue
-    
-    # اگر تمام تلاش‌ها شکست خورد، جلسه را ببندیم
-    await self._close_session()
-    raise TwitterAPIError(
-        message=f"Failed after {self.max_attempts} attempts: {str(last_exception)}"
-    )
+        # اگر تمام تلاش‌ها شکست خورد، جلسه را ببندیم
+        await self._close_session()
+        raise TwitterAPIError(
+            message=f"Failed after {self.max_attempts} attempts: {str(last_exception)}",
+            details={"error": str(last_exception)}
+        )
     
     def _parse_tweet_data(self, tweet_data: Dict[str, Any]) -> TweetData:
         """تبدیل داده خام توییت به مدل TweetData"""
         try:
             author = tweet_data.get("author", {})
             
+            # تبدیل تاریخ با مدیریت خطا
+            created_at = datetime.now()
+            if "createdAt" in tweet_data:
+                try:
+                    created_at = datetime.strptime(
+                        tweet_data.get("createdAt", ""), 
+                        "%a %b %d %H:%M:%S %z %Y"
+                    )
+                except ValueError as e:
+                    logger.warning(f"Invalid date format: {tweet_data.get('createdAt')} - {str(e)}")
+            
             return TweetData(
                 tweet_id=tweet_data.get("id", ""),
                 text=tweet_data.get("text", ""),
-                created_at=datetime.strptime(tweet_data.get("createdAt", ""), "%a %b %d %H:%M:%S %z %Y") 
-                           if "createdAt" in tweet_data else datetime.now(),
+                created_at=created_at,
                 author_id=author.get("id", ""),
                 author_username=author.get("userName", ""),
                 author_name=author.get("name", ""),
@@ -197,6 +305,7 @@ async def _make_request(
                 raw_data=tweet_data
             )
         except (ValidationError, ValueError) as e:
+            logger.error(f"Error parsing tweet data: {str(e)}")
             raise AppValidationError(
                 message=f"Error parsing tweet data: {str(e)}",
                 details={"tweet_data": tweet_data}
@@ -205,6 +314,17 @@ async def _make_request(
     def _parse_user_data(self, user_data: Dict[str, Any]) -> UserData:
         """تبدیل داده خام کاربر به مدل UserData"""
         try:
+            # تبدیل تاریخ با مدیریت خطا
+            created_at = datetime.now()
+            if "createdAt" in user_data:
+                try:
+                    created_at = datetime.strptime(
+                        user_data.get("createdAt", ""), 
+                        "%a %b %d %H:%M:%S %z %Y"
+                    )
+                except ValueError as e:
+                    logger.warning(f"Invalid user date format: {user_data.get('createdAt')} - {str(e)}")
+            
             return UserData(
                 user_id=user_data.get("id", ""),
                 username=user_data.get("userName", ""),
@@ -212,13 +332,13 @@ async def _make_request(
                 description=user_data.get("description"),
                 followers_count=user_data.get("followers", 0),
                 following_count=user_data.get("following", 0),
-                created_at=datetime.strptime(user_data.get("createdAt", ""), "%a %b %d %H:%M:%S %z %Y")
-                          if "createdAt" in user_data else datetime.now(),
+                created_at=created_at,
                 verified=user_data.get("isBlueVerified", False),
                 profile_image_url=user_data.get("profilePicture"),
                 raw_data=user_data
             )
         except (ValidationError, ValueError) as e:
+            logger.error(f"Error parsing user data: {str(e)}")
             raise AppValidationError(
                 message=f"Error parsing user data: {str(e)}",
                 details={"user_data": user_data}
@@ -226,6 +346,8 @@ async def _make_request(
     
     async def search_tweets(self, params: SearchParameters) -> List[TweetData]:
         """جستجوی توییت‌ها بر اساس پارامترهای داده شده"""
+        logger.info(f"Searching tweets with query: {params.query}, type: {params.query_type}")
+        
         query_params = {
             "query": params.query,
             "queryType": params.query_type
@@ -249,10 +371,15 @@ async def _make_request(
         
         # استخراج توییت‌ها
         tweets = response.get("data", {}).get("list", [])
-        return [self._parse_tweet_data(tweet) for tweet in tweets]
+        result = [self._parse_tweet_data(tweet) for tweet in tweets]
+        
+        logger.info(f"Found {len(result)} tweets for query: {params.query}")
+        return result
     
     async def get_user_info(self, username: str) -> UserData:
         """دریافت اطلاعات کاربر با نام کاربری"""
+        logger.info(f"Getting user info for username: {username}")
+        
         response = await self._make_request(
             "GET",
             "/twitter/user/info",
@@ -277,6 +404,8 @@ async def _make_request(
         cursor: Optional[str] = None
     ) -> List[TweetData]:
         """دریافت توییت‌های اخیر یک کاربر"""
+        logger.info(f"Getting tweets for user_id: {user_id}, include_replies: {include_replies}")
+        
         query_params = {
             "userId": user_id,
             "includeReplies": str(include_replies).lower()
@@ -300,10 +429,15 @@ async def _make_request(
         
         # استخراج توییت‌ها
         tweets = response.get("data", {}).get("list", [])
-        return [self._parse_tweet_data(tweet) for tweet in tweets]
+        result = [self._parse_tweet_data(tweet) for tweet in tweets]
+        
+        logger.info(f"Found {len(result)} tweets for user_id: {user_id}")
+        return result
     
     async def get_tweets_by_ids(self, tweet_ids: List[str]) -> List[TweetData]:
         """دریافت توییت‌ها با شناسه‌های داده شده"""
+        logger.info(f"Getting tweets by ids: {len(tweet_ids)} ids")
+        
         response = await self._make_request(
             "GET",
             "/twitter/tweets",
@@ -319,7 +453,10 @@ async def _make_request(
         
         # استخراج توییت‌ها
         tweets = response.get("data", [])
-        return [self._parse_tweet_data(tweet) for tweet in tweets]
+        result = [self._parse_tweet_data(tweet) for tweet in tweets]
+        
+        logger.info(f"Found {len(result)} tweets from {len(tweet_ids)} requested ids")
+        return result
     
     async def __aenter__(self) -> "TwitterClient":
         """مدیریت متن با استفاده از async with"""
@@ -331,9 +468,17 @@ async def _make_request(
         await self._close_session()
 
 
-def create_twitter_client() -> TwitterClient:
+def create_twitter_client() -> TwitterAPIClient:
     """تابع سازنده برای ایجاد نمونه از کلاینت توییتر"""
+    api_key = settings.twitter_api.api_key
+    base_url = settings.twitter_api.base_url
+    
+    if not api_key or api_key == "missing_api_key":
+        logger.warning("Twitter API key is missing or invalid. Using mock client that will return empty results.")
+        return MockTwitterClient()  # استفاده از کلاینت شبیه‌سازی شده در صورت نبود API key
+    
+    logger.info(f"Creating Twitter client with base URL: {base_url}")
     return TwitterClient(
-        api_key=settings.twitter_api.api_key,
-        base_url=settings.twitter_api.base_url
+        api_key=api_key,
+        base_url=base_url
     )

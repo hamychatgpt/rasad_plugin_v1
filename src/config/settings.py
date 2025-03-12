@@ -36,25 +36,32 @@ class DatabaseSettings(BaseModel):
 
 class TwitterAPISettings(BaseModel):
     """تنظیمات Twitter API"""
-    api_key: str = Field(default="missing_api_key", alias="TWITTER_API_KEY")
+    api_key: str = Field(default="", alias="TWITTER_API_KEY")
     base_url: str = "https://api.twitterapi.io"
-    default_qps: int = 200
-    default_rpm: int = 12000
-    max_attempts: int = 5
-    initial_delay: float = 1.0
-    exponential_factor: float = 2.0
-    jitter: float = 0.1
+    # کد بقیه
 
+    @field_validator('api_key')
+    @classmethod
+    def validate_api_key(cls, v: str) -> str:
+        """اعتبارسنجی کلید API توییتر"""
+        if not v or v == "missing_api_key":
+            logger.warning("Twitter API key is missing or invalid")
+        return v
 
 class AnthropicAPISettings(BaseModel):
     """تنظیمات Anthropic API"""
-    api_key: str = Field(default="missing_api_key", alias="ANTHROPIC_API_KEY")
+    api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
     default_model: str = "claude-3-7-sonnet-20250219"
-    fallback_model: str = "claude-3-5-sonnet-20241022"
-    max_tokens: int = 1024
-    temperature: float = 0.7
+    # کد بقیه
 
-
+    @field_validator('api_key')
+    @classmethod
+    def validate_api_key(cls, v: str) -> str:
+        """اعتبارسنجی کلید API آنتروپیک"""
+        if not v or v == "missing_api_key":
+            logger.warning("Anthropic API key is missing or invalid")
+        return v
+    
 class CollectorSettings(BaseModel):
     """تنظیمات جمع‌کننده داده"""
     default_interval: int = 300  # ثانیه
