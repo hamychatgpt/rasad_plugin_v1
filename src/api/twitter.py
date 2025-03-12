@@ -73,7 +73,7 @@ class TwitterClient(TwitterAPIClient):
         self.base_url = base_url
         self.session: Optional[aiohttp.ClientSession] = None
         
-        # تنظیمات محدودیت نرخ
+        # تنظیمات محدودیت نرخ - بر اساس مستندات، API از 200 QPS پشتیبانی می‌کند
         self.rate_limits: Dict[str, Dict[str, Union[int, float]]] = {
             "default": {
                 "limit": settings.twitter_api.default_qps,
@@ -91,9 +91,9 @@ class TwitterClient(TwitterAPIClient):
     async def _ensure_session(self) -> None:
         """اطمینان از وجود جلسه HTTP با تنظیم صحیح هدرها"""
         if self.session is None or self.session.closed:
+            # مطابق با مستندات، API key باید در هدر X-API-Key قرار گیرد
             headers = {
                 "X-API-Key": self.api_key,
-                "x-api-key": self.api_key,  # اضافه کردن هر دو فرمت احتمالی هدر
                 "Content-Type": "application/json",
                 "Accept": "application/json"
             }
@@ -108,6 +108,7 @@ class TwitterClient(TwitterAPIClient):
     
     def _update_rate_limits(self, endpoint: str, headers: Dict[str, str]) -> None:
         """به‌روزرسانی اطلاعات محدودیت نرخ از هدرهای پاسخ"""
+        # مطابق با مستندات، API از هدرهای خاصی برای محدودیت نرخ استفاده می‌کند
         limit = int(headers.get("X-Rate-Limit-Limit", "0"))
         remaining = int(headers.get("X-Rate-Limit-Remaining", "0"))
         reset = float(headers.get("X-Rate-Limit-Reset", "0"))
@@ -147,7 +148,7 @@ class TwitterClient(TwitterAPIClient):
         url = f"{self.base_url}{endpoint}"
         last_exception = None
         
-        # لیست کدهای وضعیت قابل بازتلاش
+        # لیست کدهای وضعیت قابل بازتلاش بر اساس مستندات
         retryable_status_codes = {429, 500, 502, 503, 504}
         
         # اطمینان از اینکه API key در هدرها وجود دارد
@@ -155,10 +156,7 @@ class TwitterClient(TwitterAPIClient):
             kwargs['headers'] = {}
         
         # اضافه کردن API key به هدرهای درخواست برای اطمینان
-        kwargs['headers'].update({
-            "X-API-Key": self.api_key,
-            "x-api-key": self.api_key
-        })
+        kwargs['headers']["X-API-Key"] = self.api_key
         
         logger.debug(f"Making request to {url} with method {method}")
         
@@ -243,9 +241,22 @@ class TwitterClient(TwitterAPIClient):
                             response_body=response_text
                         )
                     
-                    # درخواست موفق
+                    # درخواست موفق - پردازش پاسخ JSON
                     try:
-                        return json.loads(response_text)
+                        response_json = json.loads(response_text)
+                        
+                        # بررسی فیلد وضعیت در پاسخ بر اساس مستندات
+                        if isinstance(response_json, dict) and response_json.get("status") == "error":
+                            error_msg = response_json.get("msg", "Unknown API error")
+                            logger.error(f"API returned error status: {error_msg}")
+                            raise TwitterAPIError(
+                                message=f"Twitter API error: {error_msg}",
+                                status_code=response.status,
+                                response_body=response_text,
+                                details=response_json
+                            )
+                        
+                        return response_json
                     except json.JSONDecodeError:
                         logger.error(f"Invalid JSON response: {response_text[:100]}...")
                         raise TwitterAPIError(
@@ -275,9 +286,10 @@ class TwitterClient(TwitterAPIClient):
     def _parse_tweet_data(self, tweet_data: Dict[str, Any]) -> TweetData:
         """تبدیل داده خام توییت به مدل TweetData"""
         try:
+            # استخراج اطلاعات نویسنده بر اساس مستندات
             author = tweet_data.get("author", {})
             
-            # تبدیل تاریخ با مدیریت خطا
+            # تبدیل تاریخ با مدیریت خطا - فرمت تاریخ مطابق با مستندات
             created_at = datetime.now()
             if "createdAt" in tweet_data:
                 try:
@@ -288,12 +300,13 @@ class TwitterClient(TwitterAPIClient):
                 except ValueError as e:
                     logger.warning(f"Invalid date format: {tweet_data.get('createdAt')} - {str(e)}")
             
+            # ساخت نمونه TweetData با فیلدهای مستند شده
             return TweetData(
                 tweet_id=tweet_data.get("id", ""),
                 text=tweet_data.get("text", ""),
                 created_at=created_at,
                 author_id=author.get("id", ""),
-                author_username=author.get("userName", ""),
+                author_username=author.get("userName", ""),  # توجه به پاسکال کیس userName
                 author_name=author.get("name", ""),
                 retweet_count=tweet_data.get("retweetCount", 0),
                 reply_count=tweet_data.get("replyCount", 0),
@@ -314,7 +327,7 @@ class TwitterClient(TwitterAPIClient):
     def _parse_user_data(self, user_data: Dict[str, Any]) -> UserData:
         """تبدیل داده خام کاربر به مدل UserData"""
         try:
-            # تبدیل تاریخ با مدیریت خطا
+            # تبدیل تاریخ با مدیریت خطا - فرمت تاریخ مطابق با مستندات
             created_at = datetime.now()
             if "createdAt" in user_data:
                 try:
@@ -325,16 +338,17 @@ class TwitterClient(TwitterAPIClient):
                 except ValueError as e:
                     logger.warning(f"Invalid user date format: {user_data.get('createdAt')} - {str(e)}")
             
+            # ساخت نمونه UserData با فیلدهای مستند شده
             return UserData(
                 user_id=user_data.get("id", ""),
-                username=user_data.get("userName", ""),
+                username=user_data.get("userName", ""),  # توجه به پاسکال کیس userName
                 display_name=user_data.get("name", ""),
                 description=user_data.get("description"),
                 followers_count=user_data.get("followers", 0),
                 following_count=user_data.get("following", 0),
                 created_at=created_at,
-                verified=user_data.get("isBlueVerified", False),
-                profile_image_url=user_data.get("profilePicture"),
+                verified=user_data.get("isBlueVerified", False),  # نام فیلد بر اساس مستندات
+                profile_image_url=user_data.get("profilePicture"),  # نام فیلد بر اساس مستندات
                 raw_data=user_data
             )
         except (ValidationError, ValueError) as e:
@@ -348,9 +362,10 @@ class TwitterClient(TwitterAPIClient):
         """جستجوی توییت‌ها بر اساس پارامترهای داده شده"""
         logger.info(f"Searching tweets with query: {params.query}, type: {params.query_type}")
         
+        # ساخت پارامترهای درخواست مطابق با مستندات
         query_params = {
             "query": params.query,
-            "queryType": params.query_type
+            "queryType": params.query_type  # بر اساس مستندات، پارامتر queryType پاسکال کیس است
         }
         
         if params.cursor:
@@ -380,10 +395,11 @@ class TwitterClient(TwitterAPIClient):
         """دریافت اطلاعات کاربر با نام کاربری"""
         logger.info(f"Getting user info for username: {username}")
         
+        # استفاده از پارامتر userName مطابق با مستندات
         response = await self._make_request(
             "GET",
             "/twitter/user/info",
-            params={"userName": username}
+            params={"userName": username}  # نام پارامتر بر اساس مستندات
         )
         
         # بررسی وضعیت پاسخ
@@ -406,9 +422,10 @@ class TwitterClient(TwitterAPIClient):
         """دریافت توییت‌های اخیر یک کاربر"""
         logger.info(f"Getting tweets for user_id: {user_id}, include_replies: {include_replies}")
         
+        # ساخت پارامترهای درخواست بر اساس مستندات
         query_params = {
-            "userId": user_id,
-            "includeReplies": str(include_replies).lower()
+            "userId": user_id,  # توجه به camelCase در پارامترها
+            "includeReplies": str(include_replies).lower()  # تبدیل بولین به رشته حروف کوچک
         }
         
         if cursor:
@@ -438,6 +455,7 @@ class TwitterClient(TwitterAPIClient):
         """دریافت توییت‌ها با شناسه‌های داده شده"""
         logger.info(f"Getting tweets by ids: {len(tweet_ids)} ids")
         
+        # بر اساس مستندات، پارامتر tweet_ids باید به صورت رشته‌ای از شناسه‌های جداشده با کاما باشد
         response = await self._make_request(
             "GET",
             "/twitter/tweets",
@@ -469,7 +487,7 @@ class TwitterClient(TwitterAPIClient):
 
 def create_twitter_client() -> TwitterAPIClient:
     """تابع سازنده برای ایجاد نمونه از کلاینت توییتر"""
-    # Чтение напрямую из переменных окружения вместо settings
+    # خواندن کلید API مستقیماً از متغیرهای محیطی
     api_key = os.environ.get("TWITTER_API_KEY", "")
     base_url = settings.twitter_api.base_url
     
